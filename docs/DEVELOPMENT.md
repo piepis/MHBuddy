@@ -283,6 +283,6 @@ cd services/api && go run ./cmd/mhbuddy pack
 - 荒野公开简介没有地图，因此没有荒野地图页。
 - 机械武器、猫饭、极限突破只记在功能矩阵，没有做成模拟器。
 - 会员没有真实支付。额度只在开发开关下可改。
-- 浏览器里未同步的配装在整页刷新后会消失。收藏和主题会留在 IndexedDB。
+- 已登录时，配装、收藏和库存经同步写入 PostgreSQL，刷新后按会话拉回。未登录的副本留在 IndexedDB。主题也留在 IndexedDB。
 - CI 只跑 Go 测试。Flutter 和浏览器要在本地 `make verify` 与 `tests/acceptance` 里跑。
 - `make dev` 依赖本机 Postgres 已经在听 5432。仓库不附带安装脚本。

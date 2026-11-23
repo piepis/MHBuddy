@@ -50,7 +50,7 @@ class MhFrame extends StatelessWidget {
           child: Column(
             children: [
               if (wide)
-                _WideBar(title: title, l10n: l10n, gameId: id, palette: p)
+                _WideBar(title: title, l10n: l10n, gameId: id, palette: p, favorited: favorited, onFavorite: onFavorite)
               else
                 _PhoneBar(
                   title: title,
@@ -131,11 +131,15 @@ class _PhoneBar extends StatelessWidget {
           ),
           Expanded(child: Text(title, textAlign: TextAlign.center, style: TextStyle(color: palette.ink, fontSize: 20, fontWeight: FontWeight.w700, height: 1.25))),
           if (onFavorite != null)
-            _IconTap(
-              background: favorited ? (palette.dark ? palette.primary : palette.accent) : iconBg,
-              iconColor: Colors.white,
-              icon: LucideIcons.star,
-              onTap: onFavorite!,
+            Semantics(
+              button: true,
+              label: favorited ? '取消收藏' : '收藏',
+              child: _IconTap(
+                background: favorited ? (palette.dark ? palette.primary : palette.accent) : iconBg,
+                iconColor: Colors.white,
+                icon: LucideIcons.star,
+                onTap: onFavorite!,
+              ),
             )
           else
             const SizedBox(width: 40),
@@ -172,11 +176,13 @@ class _IconTap extends StatelessWidget {
 }
 
 class _WideBar extends StatelessWidget {
-  const _WideBar({required this.title, required this.l10n, required this.gameId, required this.palette});
+  const _WideBar({required this.title, required this.l10n, required this.gameId, required this.palette, this.onFavorite, this.favorited = false});
   final String title;
   final L10n l10n;
   final String gameId;
   final MhPalette palette;
+  final VoidCallback? onFavorite;
+  final bool favorited;
 
   @override
   Widget build(BuildContext context) {
@@ -210,6 +216,15 @@ class _WideBar extends StatelessWidget {
                   ),
                 ),
               const Spacer(),
+              if (onFavorite != null)
+                Semantics(
+                  button: true,
+                  label: favorited ? l10n.t('favorited') : l10n.t('favorite'),
+                  child: IconButton(
+                    onPressed: onFavorite,
+                    icon: Icon(LucideIcons.star, color: favorited ? palette.accent : palette.ink),
+                  ),
+                ),
               Text(title, style: TextStyle(color: palette.meta, fontSize: 13)),
             ],
           ),
@@ -289,8 +304,16 @@ class GameSwitch extends StatelessWidget {
         children: [
           for (final item in [('world', l10n.t('worldShort')), ('wilds', l10n.t('wilds'))])
             Expanded(
-              child: InkWell(
-                onTap: () => model.setGame(item.$1),
+              child: Semantics(
+                button: true,
+                selected: model.gameId == item.$1,
+                label: item.$2,
+                child: InkWell(
+                onTap: () {
+                  model.setGame(item.$1);
+                  final path = GoRouterState.of(context).uri.path;
+                  if (path == '/' || RegExp(r'^/g/[^/]+$').hasMatch(path)) context.go('/g/${item.$1}');
+                },
                 child: Container(
                   color: model.gameId == item.$1 ? (p.dark ? p.primary : p.accent) : p.segmentOff,
                   alignment: Alignment.center,
@@ -303,6 +326,7 @@ class GameSwitch extends StatelessWidget {
                     ],
                   ),
                 ),
+              ),
               ),
             ),
         ],

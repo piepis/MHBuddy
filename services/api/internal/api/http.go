@@ -84,7 +84,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func csrfOK(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 	if origin == "" {
-		return true
+		return false
 	}
 	host := r.Host
 	if xf := r.Header.Get("X-Forwarded-Host"); xf != "" {
@@ -335,7 +335,7 @@ func (s *Server) entitlement(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 500, "INTERNAL", "internal", nil)
 		return
 	}
-	writeJSON(w, 200, map[string]any{"planId": plan, "quotaBytes": quota, "usedBytes": used, "expiresAt": exp}, true)
+	writeJSON(w, 200, map[string]any{"userId": user, "planId": plan, "quotaBytes": quota, "usedBytes": used, "expiresAt": exp}, true)
 }
 
 func (s *Server) devEntitlement(w http.ResponseWriter, r *http.Request) {

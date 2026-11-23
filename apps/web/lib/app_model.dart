@@ -45,13 +45,19 @@ class AppModel extends ChangeNotifier {
         locale = meta['locale'] as String? ?? 'zh-Hans';
         applyDataTheme(themeName);
         offlineReady = meta['offline'] == true;
+      }
+      final player = await vault.get('player');
+      if (player is String && player.isNotEmpty) {
+        store.importJson(jsonDecode(player) as Map<String, dynamic>);
+      } else if (saved is String && saved.isNotEmpty) {
+        final meta = jsonDecode(saved) as Map<String, dynamic>;
         for (final raw in meta['favorites'] as List? ?? const []) {
-          final key = '$raw';
-          favorites.add(key);
-          final p = key.split('|');
-          if (p.length == 3) store.favorite(p[0], p[1], p[2]);
+          final parts = '$raw'.split('|');
+          if (parts.length == 3) store.favorite(parts[0], parts[1], parts[2]);
         }
       }
+      store.usePartition('visitor');
+      _syncFavoriteKeys();
     } catch (e) {
       status = '$e';
     }
@@ -61,6 +67,19 @@ class AppModel extends ChangeNotifier {
     } catch (e) {
       status = '$e';
     }
+    try {
+      final ent = await entitlement();
+      final id = ent?['userId'];
+      if (id is String && id.isNotEmpty) {
+        userId = id;
+        store.usePartition(id);
+        await syncBuilds();
+        await pullSnapshot();
+      }
+    } catch (e) {
+      status = '$e';
+    }
+    _syncFavoriteKeys();
     ready = true;
     notifyListeners();
   }
@@ -82,9 +101,15 @@ class AppModel extends ChangeNotifier {
   }
 
   void setGame(String id) {
-    if (id != 'world' && id != 'wilds') return;
-    gameId = id;
+    if (!adoptRouteGame(id) || gameId != id) return;
     notifyListeners();
+  }
+
+  bool adoptRouteGame(String? id) {
+    if (id != 'world' && id != 'wilds') return false;
+    if (gameId == id) return false;
+    gameId = id!;
+    return true;
   }
 
   void setLocale(String code) {
@@ -99,12 +124,33 @@ class AppModel extends ChangeNotifier {
   }
 
   void toggleFavorite(String gameId, String kind, String entryId) {
-    final key = '$gameId|$kind|$entryId';
-    if (favorites.contains(key)) return;
-    favorites.add(key);
-    store.favorite(gameId, kind, entryId);
+    if (store.isFavorite(gameId, kind, entryId)) {
+      store.unfavorite(gameId, kind, entryId);
+    } else {
+      store.favorite(gameId, kind, entryId);
+    }
+    _syncFavoriteKeys();
     notifyListeners();
     _save();
+    _persistPlayer();
+    if (userId != null) syncBuilds();
+  }
+
+  void _syncFavoriteKeys() {
+    favorites
+      ..clear()
+      ..addAll(store.favoriteKeys());
+  }
+
+  Future<void> _persistPlayer() async {
+    await vault.put('player', jsonEncode(store.exportJson()));
+  }
+
+  Future<void> saveLoadout(String gameId, String id, Map<String, dynamic> payload) async {
+    store.saveBuild(gameId, id, payload);
+    await _persistPlayer();
+    notifyListeners();
+    if (userId != null) await syncBuilds();
   }
 
   Future<String> download(String gameId) async {
@@ -140,6 +186,8 @@ class AppModel extends ChangeNotifier {
       userId = user;
       store.usePartition(user);
       notifyListeners();
+      await syncBuilds();
+      await pullSnapshot();
     }
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
@@ -148,6 +196,8 @@ class AppModel extends ChangeNotifier {
     await api.send('DELETE', '/v1/auth/session');
     userId = null;
     store.usePartition('visitor');
+    _syncFavoriteKeys();
+    await _persistPlayer();
     notifyListeners();
   }
 
@@ -158,18 +208,50 @@ class AppModel extends ChangeNotifier {
   }
 
   Future<String> syncBuilds() async {
+    if (userId == null) return 'unauthorized';
     if (store.outbox.isEmpty) return 'empty';
     final ops = store.outbox.map((op) => {
           'opId': op['opId'],
           'recordType': op['recordType'],
           'recordId': op['recordId'],
           'gameId': op['gameId'],
-          'baseRevision': 0,
+          'kind': op['kind'] ?? '',
+          'entryId': op['entryId'] ?? '',
+          'baseRevision': op['baseRevision'] ?? 0,
           'action': op['action'],
           'payload': op['payload'],
         }).toList();
     final res = await api.send('POST', '/v1/sync/push', jsonBody: {'ops': ops});
+    if (res.statusCode != 200) return res.body;
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final applied = <String>{};
+    for (final raw in body['results'] as List? ?? const []) {
+      if (raw is! Map) continue;
+      if (raw['status'] == 'applied') {
+        final opId = '${raw['opId']}';
+        applied.add(opId);
+        store.noteApplied(opId, (raw['revision'] as num?)?.toInt() ?? 0);
+      }
+    }
+    store.outbox.removeWhere((op) => applied.contains(op['opId']));
+    await _persistPlayer();
+    notifyListeners();
     return res.body;
+  }
+
+  Future<void> pullSnapshot() async {
+    if (userId == null) return;
+    final res = await api.send('GET', '/v1/sync/snapshot');
+    if (res.statusCode != 200) return;
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final records = <Map<String, dynamic>>[];
+    for (final raw in body['records'] as List? ?? const []) {
+      if (raw is Map) records.add(Map<String, dynamic>.from(raw));
+    }
+    store.replaceRemote(records);
+    _syncFavoriteKeys();
+    await _persistPlayer();
+    notifyListeners();
   }
 
   Future<List<Map<String, dynamic>>> events(String gameId, {String? q, String? reward}) async {

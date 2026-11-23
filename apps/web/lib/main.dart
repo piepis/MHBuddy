@@ -20,7 +20,7 @@ void main() {
       GoRoute(path: '/me', builder: (_, _) => const AccountPage()),
       GoRoute(path: '/offline', builder: (_, _) => const OfflinePage()),
       GoRoute(path: '/builds/:publicId', builder: (_, state) => PublicBuildPage(id: state.pathParameters['publicId']!)),
-      GoRoute(path: '/g/:gameId', builder: (_, state) => HomePage()),
+      GoRoute(path: '/g/:gameId', builder: (_, state) => HomePage(routeGameId: state.pathParameters['gameId'])),
       GoRoute(
         path: '/g/:gameId/entries',
         builder: (_, state) => CatalogPage(gameId: state.pathParameters['gameId']!, initialQuery: state.uri.queryParameters['q'] ?? ''),

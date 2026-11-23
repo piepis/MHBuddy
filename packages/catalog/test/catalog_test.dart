@@ -43,6 +43,15 @@ void main() {
     expect(a.entry.entryId, isNot(b.entry.entryId));
   });
 
+  test('map deep link waits until the catalog exists, then opens the rare node', () {
+    expect(tuneMap(null, 'fixture-rare-ore').ready, isFalse);
+    final tuned = tuneMap(world, 'fixture-rare-ore');
+    expect(tuned.ready, isTrue);
+    expect(tuned.layerId, 'floor-2');
+    expect(tuned.resourceId, 'fixture-rare-ore');
+    expect(tuned.conditions, '夹具：可能出现');
+  });
+
   test('relations and map layers', () {
     expect(world.fromEntry('monster', 'fixture-jagras').map((r) => r.toId), contains('fixture-iron-ore'));
     expect(wilds.fromEntry('weapon', 'fixture-weapon-w').single.toId, 'fixture-weapon-child');

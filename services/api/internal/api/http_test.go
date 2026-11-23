@@ -82,6 +82,9 @@ func do(t *testing.T, srv *httptest.Server, method, path string, body any, cooki
 	if cookie != "" {
 		req.Header.Set("Cookie", cookie)
 	}
+	if (req.Method == http.MethodPost || req.Method == http.MethodPut || req.Method == http.MethodDelete) && req.Header.Get("Origin") == "" && req.URL != nil {
+		req.Header.Set("Origin", req.URL.Scheme+"://"+req.URL.Host)
+	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -224,6 +227,7 @@ func TestQuotaAndIsolation(t *testing.T) {
 			b, _ := json.Marshal(map[string]any{"ops": []any{op(id)}})
 			req, _ := http.NewRequest("POST", srv.URL+"/v1/sync/push", bytes.NewReader(b))
 			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Origin", srv.URL)
 			req.Header.Set("Cookie", cookie)
 			res, err := http.DefaultClient.Do(req)
 			if err != nil {
@@ -532,6 +536,7 @@ func TestFakeProviderQuotaDoesNotStoreSentence(t *testing.T) {
 		t.Fatal(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", live.URL)
 	req.Header.Set("X-MH-AI-Voucher", "browser-voucher")
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
