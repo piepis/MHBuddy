@@ -4,7 +4,7 @@
 
 **发布状态：尚未发布。** 没有公网 HTTPS 地址。需要所有者在 Cursor 发布托盘点击 **Publish**，并在 Apps dashboard 的 **Access** 中设为 **Public**。见下文「部署与发布」。
 
-## 目录
+### 目录
 
 1. [技术栈与架构](#stack)
 2. [目录结构](#layout)
