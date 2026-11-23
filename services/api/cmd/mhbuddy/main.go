@@ -37,11 +37,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer pool.Close()
-	mig, err := os.ReadFile(filepath.Join(root, "services", "api", "migrations", "001_player_records.sql"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := api.Migrate(ctx, pool, string(mig)); err != nil {
+	if err := api.ApplyMigrations(ctx, pool, filepath.Join(root, "services", "api", "migrations")); err != nil {
 		log.Fatal(err)
 	}
 	if err := api.Seed(ctx, pool, content); err != nil {
@@ -50,6 +46,8 @@ func main() {
 	dev := os.Getenv("MH_DEV_AUTH") == "1"
 	web := getenv("WEB_ROOT", filepath.Join(root, "apps", "web", "build", "web"))
 	srv := api.New(pool, dev, content, web)
+	srv.WechatAppID = os.Getenv("WECHAT_APPID")
+	srv.WechatAppSecret = os.Getenv("WECHAT_APPSECRET")
 	port := getenv("PORT", "8080")
 	ln, err := net.Listen("tcp", "0.0.0.0:"+port)
 	if err != nil {

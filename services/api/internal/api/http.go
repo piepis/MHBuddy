@@ -23,11 +23,15 @@ import (
 )
 
 type Server struct {
-	Store      *Store
-	DevAuth    bool
-	ContentDir string
-	WebRoot    string
-	mux        *http.ServeMux
+	Store           *Store
+	DevAuth         bool
+	ContentDir      string
+	WebRoot         string
+	WechatAppID     string
+	WechatAppSecret string
+	WechatEndpoint  string
+	WechatHTTP      *http.Client
+	mux             *http.ServeMux
 }
 
 func New(pool *pgxpool.Pool, dev bool, contentDir, webRoot string) *Server {
@@ -44,6 +48,7 @@ func New(pool *pgxpool.Pool, dev bool, contentDir, webRoot string) *Server {
 	mux.HandleFunc("GET /v1/public-builds/{id}", s.getPublic)
 	mux.HandleFunc("DELETE /v1/public-builds/{id}", s.retract)
 	mux.HandleFunc("POST /v1/auth/session", s.login)
+	mux.HandleFunc("POST /v1/auth/wechat", s.wechatLogin)
 	mux.HandleFunc("DELETE /v1/auth/session", s.logout)
 	mux.HandleFunc("POST /v1/auth/refresh", s.refresh)
 	mux.HandleFunc("POST /v1/reminders/subscriptions", s.subscribe)
@@ -87,7 +92,11 @@ func csrfOK(r *http.Request) bool {
 	}
 	o := strings.TrimPrefix(strings.TrimPrefix(origin, "https://"), "http://")
 	o = strings.Split(o, "/")[0]
-	return strings.EqualFold(o, host)
+	if strings.EqualFold(o, host) {
+		return true
+	}
+	// 小程序网络请求可能带这个来源。普通网页改不了自己的 Origin。
+	return strings.EqualFold(o, "servicewechat.com")
 }
 
 func writeErr(w http.ResponseWriter, status int, code, key string, details any) {
@@ -126,15 +135,29 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]string{"status": "ok"}, false)
 }
 
-func (s *Server) currentUser(r *http.Request) (string, bool) {
-	c, err := r.Cookie("mh_session")
-	if err != nil || c.Value == "" {
+func sessionToken(r *http.Request) (string, bool) {
+	header := r.Header.Get("Authorization")
+	if header != "" {
+		const prefix = "Bearer "
+		if len(header) > len(prefix) && strings.EqualFold(header[:len(prefix)], prefix) {
+			return strings.TrimSpace(header[len(prefix):]), true
+		}
+		return "", true
+	}
+	if c, err := r.Cookie("mh_session"); err == nil {
+		return c.Value, false
+	}
+	return "", false
+}
+
+func (s *Server) userForToken(ctx context.Context, token string) (string, bool) {
+	if token == "" {
 		return "", false
 	}
-	sum := sha256.Sum256([]byte(c.Value))
+	sum := sha256.Sum256([]byte(token))
 	hash := hex.EncodeToString(sum[:])
 	var user string
-	err = s.Store.Pool.QueryRow(r.Context(), `
+	err := s.Store.Pool.QueryRow(ctx, `
 		SELECT user_id FROM sessions WHERE token_hash=$1 AND revoked_at IS NULL AND expires_at > now()
 	`, hash).Scan(&user)
 	if err != nil {
@@ -143,20 +166,45 @@ func (s *Server) currentUser(r *http.Request) (string, bool) {
 	return user, true
 }
 
-func (s *Server) setSession(w http.ResponseWriter, r *http.Request, user string) error {
+func (s *Server) currentUser(r *http.Request) (string, bool) {
+	token, _ := sessionToken(r)
+	return s.userForToken(r.Context(), token)
+}
+
+func (s *Server) revokeToken(ctx context.Context, token string) {
+	if token == "" {
+		return
+	}
+	sum := sha256.Sum256([]byte(token))
+	_, _ = s.Store.Pool.Exec(ctx, `UPDATE sessions SET revoked_at=now() WHERE token_hash=$1 AND revoked_at IS NULL`, hex.EncodeToString(sum[:]))
+}
+
+func (s *Server) issueSession(ctx context.Context, user string) (string, error) {
 	token := randHex(32)
 	sum := sha256.Sum256([]byte(token))
-	_, err := s.Store.Pool.Exec(r.Context(), `
+	_, err := s.Store.Pool.Exec(ctx, `
 		INSERT INTO sessions (token_hash, user_id, expires_at) VALUES ($1,$2, now() + interval '7 days')
 	`, hex.EncodeToString(sum[:]), user)
 	if err != nil {
-		return err
+		return "", err
 	}
+	return token, nil
+}
+
+func (s *Server) writeSessionCookie(w http.ResponseWriter, r *http.Request, token string) {
 	secure := r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
 	http.SetCookie(w, &http.Cookie{
 		Name: "mh_session", Value: token, Path: "/", HttpOnly: true,
 		SameSite: http.SameSiteLaxMode, Secure: secure, MaxAge: 7 * 24 * 3600,
 	})
+}
+
+func (s *Server) setSession(w http.ResponseWriter, r *http.Request, user string) error {
+	token, err := s.issueSession(r.Context(), user)
+	if err != nil {
+		return err
+	}
+	s.writeSessionCookie(w, r, token)
 	return nil
 }
 
@@ -218,29 +266,36 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
+	if token, _ := sessionToken(r); token != "" {
+		s.revokeToken(r.Context(), token)
+	}
 	if c, err := r.Cookie("mh_session"); err == nil {
-		sum := sha256.Sum256([]byte(c.Value))
-		_, _ = s.Store.Pool.Exec(r.Context(), `UPDATE sessions SET revoked_at=now() WHERE token_hash=$1`, hex.EncodeToString(sum[:]))
+		s.revokeToken(r.Context(), c.Value)
 	}
 	http.SetCookie(w, &http.Cookie{Name: "mh_session", Value: "", Path: "/", MaxAge: -1, HttpOnly: true})
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) refresh(w http.ResponseWriter, r *http.Request) {
-	user, ok := s.currentUser(r)
+	token, viaBearer := sessionToken(r)
+	user, ok := s.userForToken(r.Context(), token)
 	if !ok {
 		writeErr(w, http.StatusUnauthorized, "UNAUTHORIZED", "unauthorized", nil)
 		return
 	}
-	if c, err := r.Cookie("mh_session"); err == nil {
-		sum := sha256.Sum256([]byte(c.Value))
-		_, _ = s.Store.Pool.Exec(r.Context(), `UPDATE sessions SET revoked_at=now() WHERE token_hash=$1`, hex.EncodeToString(sum[:]))
-	}
-	if err := s.setSession(w, r, user); err != nil {
+	s.revokeToken(r.Context(), token)
+	newToken, err := s.issueSession(r.Context(), user)
+	if err != nil {
 		writeErr(w, 500, "INTERNAL", "internal", nil)
 		return
 	}
-	writeJSON(w, 200, map[string]string{"userId": user}, true)
+	s.writeSessionCookie(w, r, newToken)
+	body := map[string]any{"userId": user}
+	if viaBearer {
+		body["token"] = newToken
+		body["expiresIn"] = 7 * 24 * 3600
+	}
+	writeJSON(w, 200, body, true)
 }
 
 func decode(r *http.Request, v any) error {

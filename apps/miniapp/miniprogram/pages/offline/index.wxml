@@ -1,0 +1,15 @@
+<view class="theme-{{theme}}">
+  <view class="banner" wx:if="{{banner}}">{{banner}}</view>
+  <view class="card" wx:for="{{rows}}" wx:key="gameId">
+    <view class="bar">{{item.name}}</view>
+    <view class="card-body">
+      <view class="kv"><text>版本</text><text class="meta">{{item.revision}}</text></view>
+      <view class="kv"><text>核实</text><text class="meta">{{item.verified}}</text></view>
+      <view class="meta" wx:if="{{item.fixture}}">夹具，不是游戏实数。</view>
+      <view class="meta" wx:if="{{item.error}}">{{item.error}}</view>
+      <view class="actions">
+        <view class="btn-primary" data-id="{{item.gameId}}" bindtap="download">更新</view>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,24 @@
+<view class="theme-{{theme}}">
+  <view wx:if="{{missing}}" class="note">没有这条百科。</view>
+  <block wx:else>
+    <view class="head">
+      <view class="article-title">{{name}}</view>
+      <view class="star {{fav ? 'on' : ''}}" bindtap="toggleFav">★</view>
+    </view>
+    <view class="meta pad">{{meta}}</view>
+    <view class="note">{{summary}}</view>
+    <view class="card" wx:if="{{weaknesses.length}}">
+      <view class="bar">肉质</view>
+      <view class="card-body">
+        <view class="kv" wx:for="{{weaknesses}}" wx:key="part">
+          <text>{{item.part}} · {{item.element}}</text>
+          <text class="weak">{{item.stars}}</text>
+        </view>
+      </view>
+    </view>
+    <view class="note" wx:if="{{fixture}}">夹具数据，不是游戏实数。</view>
+    <view class="dock" wx:if="{{hasMap}}">
+      <view class="btn-primary" bindtap="openMap">{{mapLabel}}</view>
+    </view>
+  </block>
+</view>

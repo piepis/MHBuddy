@@ -13,5 +13,7 @@ coverage/
 .DS_Store
 apps/web/.dart_tool/
 apps/web/build/
+apps/miniapp/project.private.config.json
+apps/miniapp/preview-qr.png
 **/doc/api/
 .pub-cache/

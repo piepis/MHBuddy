@@ -1,0 +1,15 @@
+{
+  "desc": "百科、地图、公开配装和活动可以被索引。会员页不单独收录。",
+  "rules": [
+    { "action": "allow", "page": "pages/home/index" },
+    { "action": "allow", "page": "pages/wiki/index" },
+    { "action": "allow", "page": "pages/wiki/article" },
+    { "action": "allow", "page": "pages/map/index" },
+    { "action": "allow", "page": "pages/builds/index" },
+    { "action": "allow", "page": "pages/builds/detail" },
+    { "action": "allow", "page": "pages/events/index" },
+    { "action": "allow", "page": "pages/events/detail" },
+    { "action": "disallow", "page": "pages/me/index" },
+    { "action": "disallow", "page": "pages/offline/index" }
+  ]
+}

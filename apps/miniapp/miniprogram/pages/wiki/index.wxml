@@ -1,0 +1,20 @@
+<view class="theme-{{theme}}">
+  <input class="search" placeholder="搜索武器、怪物、素材" value="{{q}}" bindinput="onInput" />
+  <scroll-view class="filters" scroll-x="true">
+    <view wx:for="{{kinds}}" wx:key="id" class="chip {{item.on ? 'on' : ''}}" data-id="{{item.id}}" bindtap="onKind">{{item.label}}</view>
+  </scroll-view>
+  <view wx:if="{{empty}}" class="card">
+    <view class="bar">百科</view>
+    <view class="card-body">
+      <view>{{emptyText}}</view>
+      <view class="actions"><view class="btn" bindtap="clear">{{clearText}}</view></view>
+    </view>
+  </view>
+  <view wx:for="{{rows}}" wx:key="entryId" class="row" data-kind="{{item.kind}}" data-id="{{item.entryId}}" bindtap="open">
+    <view class="row-main">
+      <view class="row-title">{{item.name}}</view>
+      <view class="meta">{{item.subtitle}}</view>
+    </view>
+    <text class="chev">›</text>
+  </view>
+</view>

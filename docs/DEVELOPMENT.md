@@ -28,7 +28,7 @@
 | 个人与资料缓存 | IndexedDB（`idb_shim`），站点外壳用 `apps/web/web/sw.js` |
 | 配装计算 | 纯 Dart 求解器，页面用 `compute` 放到隔离线程 |
 | 同源 API 与静态资源 | Go 1.22，`net/http`，模块 `services/api` |
-| 账户数据 | PostgreSQL。本仓库迁移见 `services/api/migrations/001_player_records.sql` |
+| 账户数据 | PostgreSQL。迁移按文件名顺序执行，现有 `001_player_records.sql`，小程序身份在 `002_wechat_identities.sql` |
 | 契约 | `contracts/openapi.yaml` 与 `contracts/schemas/` |
 
 访客打开公开页不需要登录。公开配装只读已发布快照。私稿在浏览器个人库里，同步之后只出现在该账户的 snapshot / pull，公开接口读不到。
@@ -66,6 +66,7 @@ flowchart LR
 | 路径 | 作用 |
 | --- | --- |
 | `apps/web/` | Flutter Web。页面在 `lib/pages.dart`，壳和主题在 `lib/shell.dart`、`lib/theme.dart` |
+| `apps/miniapp/` | 微信小程序。页面在 `miniprogram/pages/`，不改 Web 路由。说明见 [miniapp.md](miniapp.md) |
 | `packages/catalog/` | 百科搜索、地图点、资料包验签与安装 |
 | `packages/builds/` | 配装求解和荒野 JSON 导入预览 |
 | `packages/player_store/` | 访客分区、收藏、库存、配装和 outbox |
@@ -103,11 +104,12 @@ flowchart LR
 - 收藏、语言、主题、离线标记写在 IndexedDB 的 `meta`。
 - 未同步的配装对象在内存里的 `PlayerStore`。刷新页面会丢掉尚未同步的内存配装。
 
-PostgreSQL 表（启动时执行 `001_player_records.sql`）：
+PostgreSQL 表（启动时按文件名执行 `services/api/migrations/*.sql`）：
 
 | 表 | 内容 |
 | --- | --- |
 | `accounts` | 用户 id 与显示名 |
+| `wechat_identities` | 小程序 openid 到账户 id。不存 session_key |
 | `sessions` | 会话 token 的 SHA-256，过期与撤销 |
 | `entitlements` | `plan_id`、`quota_bytes`、`used_bytes` |
 | `account_state` | 同步游标 `next_cursor` 与过期下界 `min_cursor` |
@@ -141,9 +143,10 @@ PostgreSQL 表（启动时执行 `001_player_records.sql`）：
 | `GET /v1/public-builds/{id}` | 匿名 | 已发布快照。撤回为 410 `RETRACTED` 且不带 snapshot。没有记录为 404 |
 | `POST /v1/public-builds` | 登录 | 只保存调用者提交的公开字段 |
 | `DELETE /v1/public-builds/{id}` | 作者 | 撤回。别人是 403 |
-| `POST /v1/auth/session` | 开发开关 | 建立会话 |
+| `POST /v1/auth/session` | 开发开关 | 建立会话。只写 cookie，响应里没有 token |
+| `POST /v1/auth/wechat` | 小程序 | `wx.login` 的 code 兑换会员。未配置 `WECHAT_APPID` / `WECHAT_APPSECRET` 时 503 `WECHAT_NOT_CONFIGURED`。开发开关下 `dev:` 开头的 code 绑定现有测试用户。成功时响应带 `token`，同时仍写 cookie |
 | `POST /v1/auth/refresh` | 登录 | 轮换会话 |
-| `DELETE /v1/auth/session` | 持有 cookie | 撤销会话 |
+| `DELETE /v1/auth/session` | 持有 cookie 或 Bearer | 撤销这次会话 |
 | `GET /v1/me/entitlement` | 登录 | 额度。未登录 401 |
 | `POST /v1/sync/push` | 登录 | 逐条 `applied`、`conflict` 或 `rejected`。相同 `opId` 和内容返回原结果，内容不同则 `IDEMPOTENCY_CONFLICT` |
 | `GET /v1/sync/pull` | 登录 | `cursor` 过期为 409 `CURSOR_EXPIRED` |
@@ -156,6 +159,8 @@ PostgreSQL 表（启动时执行 `001_player_records.sql`）：
 | `GET /v1/dev/reminder-jobs` | 同上 | 查看待发提醒 |
 
 个人数据响应带 `Cache-Control: private, no-store`。Service Worker 不缓存 `/v1/`。
+
+会员接口在 cookie 之外接受 `Authorization: Bearer`。网页仍只用 cookie。带 `Bearer` 调用 `POST /v1/auth/refresh` 时，响应才会多一个新 `token`。来源是 `https://servicewechat.com` 的写请求可以通过 CSRF 检查；其他跨站来源仍然 403。
 
 <a id="offline-sync"></a>
 
@@ -189,6 +194,9 @@ postgres://ubuntu@127.0.0.1:5432/mhbuddy?sslmode=disable
 | `make build` | `flutter build web --release --pwa-strategy=none`，再把 Go 服务编到 `.run/mhbuddy` |
 | `make audit-data` | 没有正式资料清单时打印原因并退出码 1。这是预期，不是夹具验签失败 |
 | `make check TASK=T04` | 跑指定任务的检查。`T11` 会说明发布要所有者操作并退出码 2 |
+| `make miniapp-build` | 复制夹具、写出占位配置检查。不上传 |
+| `make miniapp-test` | 先 build，再跑小程序逻辑测试 |
+| `make miniapp-preview` / `make miniapp-upload` | 交给 miniprogram-ci。没有 AppID 和上传密钥时退出码 2 |
 
 `make dev` 设置 `MH_DEV_AUTH=1`。最近一次在本仓库执行：`make dev` 退出码 0，`/healthz` 为 200；`make build` 退出码 0。
 
@@ -266,4 +274,5 @@ cd services/api && go run ./cmd/mhbuddy pack
 - 会员没有真实支付。额度只在开发开关下可改。
 - 浏览器里未同步的配装在整页刷新后会消失。收藏和主题会留在 IndexedDB。
 - CI 只跑 Go 测试。Flutter 和浏览器要在本地 `make verify` 与 `tests/acceptance` 里跑。
+- 微信小程序还没有 AppID，也没有上传。`touristappid` 是占位。步骤在 [miniapp.md](miniapp.md)。
 - `make dev` 依赖本机 Postgres 已经在听 5432。仓库不附带安装脚本。

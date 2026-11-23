@@ -1,0 +1,15 @@
+{
+  "name": "mhbuddy-miniapp",
+  "private": true,
+  "description": "Tooling for the MH伙伴助手 WeChat mini program. The program itself is miniprogram/.",
+  "scripts": {
+    "build": "node scripts/build.js",
+    "test": "node --test test/*.js"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "lucide-static": "^0.544.0",
+    "miniprogram-ci": "^1.9.14",
+    "tweetnacl": "^1.0.3"
+  }
+}

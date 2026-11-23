@@ -2,7 +2,7 @@ ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 export PATH := $(HOME)/flutter/bin:$(HOME)/pg/bin:$(PATH)
 export LD_LIBRARY_PATH := $(HOME)/pg/lib$(if $(LD_LIBRARY_PATH),:$(LD_LIBRARY_PATH))
 
-.PHONY: doctor research-mh dev dev-stop build start check verify audit-data test-go test-dart
+.PHONY: doctor research-mh dev dev-stop build start check verify audit-data test-go test-dart miniapp-build miniapp-test miniapp-preview miniapp-upload
 
 doctor:
 	python3 tools/doctor.py
@@ -57,3 +57,15 @@ audit-data:
 	@echo "audit-data: no formal content manifest was provided"
 	@echo "fixture packs are signed under content/fixtures/manifests and are not an accuracy audit"
 	@exit 1
+
+miniapp-build:
+	node apps/miniapp/scripts/build.js
+
+miniapp-test: miniapp-build
+	node --test apps/miniapp/test/*.js
+
+miniapp-preview:
+	node apps/miniapp/scripts/upload.js preview
+
+miniapp-upload:
+	node apps/miniapp/scripts/upload.js upload
