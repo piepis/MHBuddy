@@ -6,17 +6,19 @@
 
 ## 目录
 
-1. [技术栈与架构](#技术栈与架构)
-2. [目录结构](#目录结构)
-3. [数据模型与数据库](#数据模型与数据库)
-4. [API 列表与鉴权](#api-列表与鉴权)
-5. [离线与同步](#离线与同步)
-6. [本地环境与 make 命令](#本地环境与-make-命令)
-7. [测试策略](#测试策略)
+1. [技术栈与架构](#stack)
+2. [目录结构](#layout)
+3. [数据模型与数据库](#data-model)
+4. [API 列表与鉴权](#api)
+5. [离线与同步](#offline-sync)
+6. [本地环境与 make 命令（dev/verify/build/audit-data）](#make-commands)
+7. [测试策略](#testing)
 8. [CI](#ci)
-9. [部署与发布](#部署与发布)
-10. [数据导入](#数据导入)
-11. [已知问题](#已知问题)
+9. [部署与发布](#deploy)
+10. [数据导入](#import)
+11. [已知问题](#known-issues)
+
+<a id="stack"></a>
 
 ## 技术栈与架构
 
@@ -57,6 +59,8 @@ flowchart LR
 
 作品切换不换主题。默认浅色羊皮纸（`data-theme=light`），可选深色冰原（`data-theme=dark`）。世界和荒野用当前主题里的圆点区分。
 
+<a id="layout"></a>
+
 ## 目录结构
 
 | 路径 | 作用 |
@@ -87,6 +91,8 @@ flowchart LR
 | `/me` | 收藏、配装计数、语言、外观、登录 |
 | `/offline` | 按作品下载夹具包 |
 
+<a id="data-model"></a>
+
 ## 数据模型与数据库
 
 百科条目的稳定引用是 `(gameId, kind, entryId)`。`gameId` 只有 `world` 和 `wilds`。冰原是 `world` 的内容档 `iceborne`，不是第三个 `gameId`。当前数据包版本号是 `fixture-1`，标记 `fixture: true`，不是游戏实数。
@@ -114,6 +120,8 @@ PostgreSQL 表（启动时执行 `001_player_records.sql`）：
 收藏的唯一约束是 `(owner_id, game_id, kind, entry_id)`，避免两作同号条目撞在一起。私稿行不在 `public_builds` 里。
 
 开发环境额度：`hunter-b` 是小档 800 字节，其他开发用户是 20000 字节。这是测试档，不是售价。
+
+<a id="api"></a>
 
 ## API 列表与鉴权
 
@@ -149,6 +157,8 @@ PostgreSQL 表（启动时执行 `001_player_records.sql`）：
 
 个人数据响应带 `Cache-Control: private, no-store`。Service Worker 不缓存 `/v1/`。
 
+<a id="offline-sync"></a>
+
 ## 离线与同步
 
 首次打开需要网络，以便拿到页面和夹具 JSON。`/offline` 或首页「查看更新」会请求 `/v1/packs/latest`，下载清单里的 URL，用内置公钥验 Ed25519 签名并核对 SHA-256。签名或哈希不对、配额不够、或修订号比已激活的更旧时，不切换激活版本。
@@ -157,7 +167,9 @@ PostgreSQL 表（启动时执行 `001_player_records.sql`）：
 
 同步路径：界面把配装写入 `PlayerStore` 和 outbox，登录后 `POST /v1/sync/push`。服务端按账户加行锁算额度，超额返回 `QUOTA_EXCEEDED`，基线修订不符返回 `REVISION_CONFLICT` 且不覆盖。其他设备用 snapshot 或 pull 读取自己的行。公开 `GET` 不会返回这些行。
 
-## 本地环境与 make 命令
+<a id="make-commands"></a>
+
+## 本地环境与 make 命令（dev/verify/build/audit-data）
 
 需要 Python 3、Go 1.22、Flutter stable（含 Dart）、Chrome，以及本机可连的 PostgreSQL。默认连接串：
 
@@ -180,6 +192,8 @@ postgres://ubuntu@127.0.0.1:5432/mhbuddy?sslmode=disable
 
 `make dev` 设置 `MH_DEV_AUTH=1`。最近一次在本仓库执行：`make dev` 退出码 0，`/healthz` 为 200；`make build` 退出码 0。
 
+<a id="testing"></a>
+
 ## 测试策略
 
 | 范围 | 位置 | 覆盖 |
@@ -194,11 +208,15 @@ postgres://ubuntu@127.0.0.1:5432/mhbuddy?sslmode=disable
 
 浏览器验收使用系统 Chrome，不下载另一套浏览器。私稿检查使用互不共享 cookie 的新会话：所有者能看到自己的配装和 snapshot；访客打开私稿 id 得到「没有这条公开记录」，公开接口 404，匿名 snapshot 401；另一账户的 snapshot 不含该记录。
 
+<a id="ci"></a>
+
 ## CI
 
 `.github/workflows/ci.yml` 在 push 和 pull request 时运行。作业名是 `go`：Ubuntu 上启动 Postgres 16，用户 `ubuntu`、本机 trust，然后在 `services/api` 执行 `go test ./...`。它不跑 Flutter、浏览器或 `make verify`。
 
 分支 `cursor/mh-companion-web-8598` 上最近一次该检查结论为 success。
+
+<a id="deploy"></a>
 
 ## 部署与发布
 
@@ -217,6 +235,8 @@ postgres://ubuntu@127.0.0.1:5432/mhbuddy?sslmode=disable
 
 说明见 [Cursor Apps 文档](https://cursor.com/docs/cloud-agent/apps)。若团队关闭了公开分享，要管理员先打开该项。代理不能代替点击，也不应填写一个还不存在的 URL。
 
+<a id="import"></a>
+
 ## 数据导入
 
 夹具不是实数。生成和签名：
@@ -233,6 +253,8 @@ cd services/api && go run ./cmd/mhbuddy pack
 荒野配装文件格式是 `mhbuddy.build`，样例在 `contracts/examples/wilds-build-v1.fixture.json` 和 `wilds-build-equipped.fixture.json`。配装页可以粘贴 JSON 预览。错孔、跨作和未知 id 不会写入已有记录。第三方旧格式还没有适配器。
 
 正式资料应走单独清单和 `make audit-data`。在提供发行清单、对照表和种子之前，该命令会失败。
+
+<a id="known-issues"></a>
 
 ## 已知问题
 
