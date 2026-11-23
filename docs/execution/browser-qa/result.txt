@@ -1,0 +1,11 @@
+PASS desktop home
+PASS desktop map
+PASS desktop public build
+PASS desktop private hidden
+PASS desktop anon sync 401
+PASS mobile home
+PASS mobile map
+PASS mobile public build
+PASS mobile private hidden
+PASS mobile anon sync 401
+PASS theme toggle

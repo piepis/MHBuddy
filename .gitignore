@@ -1,0 +1,17 @@
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+.run/
+node_modules/
+.env
+.env.*
+*.log
+coverage/
+.idea/
+.DS_Store
+apps/web/.dart_tool/
+apps/web/build/
+**/doc/api/
+.pub-cache/

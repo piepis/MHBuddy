@@ -1,0 +1,14 @@
+name: catalog
+description: Offline catalog search and fixture pack install for MH伙伴助手.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  crypto: ^3.0.6
+  cryptography: ^2.7.0
+
+dev_dependencies:
+  test: ^1.25.8

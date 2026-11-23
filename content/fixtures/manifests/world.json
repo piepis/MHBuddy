@@ -1,0 +1,20 @@
+{
+  "gameId": "world",
+  "contentProfiles": [
+    "base",
+    "iceborne"
+  ],
+  "platformId": "pc",
+  "patchId": "fixture-p1",
+  "dataRevision": "fixture-1",
+  "revisionNumber": 1,
+  "schemaVersion": 1,
+  "rulesetVersion": "fixture-r1",
+  "minClient": "0.1.0",
+  "size": 21364,
+  "sha256": "0121a2ed0537b8f7a95b8b52c4962d6ced134e2318368a4b420cd257831cf615",
+  "signature": "TmwYLroGOHt79dcpylX0uGk7qUgacQLJLRh1hYtWQ4iUya5Hnby6zA3mFRkVmxWF1NQ4y3sdlqO54mqYQxFFDg==",
+  "url": "/fixtures/catalog-world.json",
+  "fixture": true,
+  "changelog": "合成夹具，不是实数资料"
+}

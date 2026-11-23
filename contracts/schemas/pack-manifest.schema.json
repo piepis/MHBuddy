@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mhbuddy.local/schemas/pack-manifest.schema.json",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["gameId", "dataRevision", "schemaVersion", "rulesetVersion", "minClient", "sha256", "signature", "url", "fixture"],
+  "properties": {
+    "gameId": {"enum": ["world", "wilds"]},
+    "dataRevision": {"type": "string"},
+    "schemaVersion": {"type": "integer"},
+    "rulesetVersion": {"type": "string"},
+    "minClient": {"type": "string"},
+    "sha256": {"type": "string", "minLength": 64, "maxLength": 64},
+    "signature": {"type": "string", "minLength": 1},
+    "url": {"type": "string"},
+    "fixture": {"type": "boolean"}
+  }
+}

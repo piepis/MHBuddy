@@ -1,0 +1,69 @@
+{
+  "observedAt": "2026-11-23",
+  "note": "Facts copied from the verified product-research report. Items marked pending were not treated as confirmed features.",
+  "world": {
+    "name": "MH伙伴：世界",
+    "iosAppId": "1365915425",
+    "iosBundle": "com.wonderplay.mhwa",
+    "iosVersion": "2.16.2",
+    "iosReleasedAt": "2026-08-01T21:15:25Z",
+    "androidStore": "应用宝",
+    "androidPackage": "com.wonderplay.mhwo",
+    "androidVersion": "2.16.2",
+    "developer": "九思 李 / Jarvis Lee",
+    "company": "海南蚩游部落网络科技有限公司",
+    "urls": {
+      "appStore": "https://apps.apple.com/cn/app/id1365915425",
+      "lookup": "https://itunes.apple.com/lookup?id=1365915425&country=cn",
+      "site": "https://static.roguelitegames.com/home/chs/?platform=android",
+      "series": "https://www.mythstribe.com/pages/mhworld/chs/index.html",
+      "yingyongbao": "https://sj.qq.com/appdetail/com.wonderplay.mhwo"
+    },
+    "confirmed": [
+      "支持 Iceborne（冰原）",
+      "离线数据库、在线更新",
+      "百科搜索与收藏：武器、防具、技能、道具、怪物",
+      "游戏地图与稀有采集点",
+      "活动资讯、赏金、新闻翻译与文章分享",
+      "配装可设武器及客制、技能、固定装备、排除装备",
+      "可用「我的装饰品」当搜索条件，结果可再筛选",
+      "配装可保存、修改、加标签、自动排序",
+      "分级云存储会员，简介未写每档容量",
+      "2.16.2 修正说明提到自动配装器和觉醒技能条件"
+    ]
+  },
+  "wilds": {
+    "name": "MH伙伴：荒野",
+    "iosAppId": "6742364507",
+    "iosBundle": "com.wonderplay.mhows",
+    "iosVersion": "1.14.6",
+    "iosReleasedAt": "2026-08-15T20:38:18Z",
+    "androidStore": "应用宝",
+    "androidPackage": "com.wonderplay.mhows",
+    "androidVersion": "1.13.0",
+    "urls": {
+      "appStore": "https://apps.apple.com/cn/app/id6742364507",
+      "site": "https://mhws.roguelitegames.com/chs/",
+      "yingyongbao": "https://sj.qq.com/appdetail/com.wonderplay.mhows"
+    },
+    "confirmedFromDescription": [
+      "百科：武器、防具、技能、道具、怪物，可收藏",
+      "简介没有写地图",
+      "配装简介只写保存、修改、导入",
+      "中国区内购只有 VIP 和打赏，简介没有写分级云存储"
+    ],
+    "confirmedFromReleaseNotes": [
+      "1.4.0 按技能自动配装，可固定武器防具护石，可排除防具和护石，可预留空槽",
+      "1.5.0 武器空槽和防具空槽分开统计",
+      "1.7.0 活动任务、怪物部位伤口弱点"
+    ]
+  },
+  "pending": [
+    "Google Play 其他地区是否上架。zh_CN 包名直链为 404。",
+    "世界版 2.16.2 之前的功能清单没有全量页面。",
+    "荒野安卓 1.13.0 与 iOS 1.14.6 的功能差没有更新说明。",
+    "荒野简介写日文，商店语言列表没有日文。",
+    "招式动作值只在游民图鉴看到，MH伙伴公开记录未见同名入口。",
+    "机械武器、猫饭、极限突破等出现在荒野版本记录，本轮 Web 不把它们做成已交付模拟器。"
+  ]
+}

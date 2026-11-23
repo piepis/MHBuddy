@@ -1,0 +1,15 @@
+{
+  "format": "mhbuddy.build",
+  "schemaVersion": 1,
+  "gameId": "wilds",
+  "contentProfile": "base",
+  "platformId": "pc",
+  "patchId": "fixture-p1",
+  "dataRevision": "fixture-1",
+  "rulesetVersion": "fixture-r1",
+  "title": "荒野导入验收草稿",
+  "weapon": {"entryId": "fixture-weapon-a", "customizations": []},
+  "armor": [],
+  "decorations": [],
+  "tags": ["导入验收"]
+}

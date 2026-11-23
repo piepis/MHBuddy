@@ -1,0 +1,11 @@
+{
+  "name": "mhbuddy-acceptance",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node browser.mjs"
+  },
+  "dependencies": {
+    "playwright-core": "1.49.1"
+  }
+}

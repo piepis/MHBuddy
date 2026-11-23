@@ -1,0 +1,13 @@
+[
+  {
+    "id": "fixture-article-about",
+    "gameId": "world",
+    "locale": "zh-Hans",
+    "title": "本站资料是夹具",
+    "body": "MH伙伴助手的百科数字是合成夹具，用来验收搜索、地图和配装。公开产品页的功能差异见开发文档，不在这里复述商店全文。",
+    "sourceUrl": "https://apps.apple.com/cn/app/id1365915425",
+    "originalLanguage": "zh-Hans",
+    "reviewStatus": "fixture",
+    "verifiedAt": "2026-11-23T00:00:00Z"
+  }
+]

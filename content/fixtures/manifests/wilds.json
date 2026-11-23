@@ -1,0 +1,19 @@
+{
+  "gameId": "wilds",
+  "contentProfiles": [
+    "base"
+  ],
+  "platformId": "pc",
+  "patchId": "fixture-p1",
+  "dataRevision": "fixture-1",
+  "revisionNumber": 1,
+  "schemaVersion": 1,
+  "rulesetVersion": "fixture-r1",
+  "minClient": "0.1.0",
+  "size": 15178,
+  "sha256": "095088b8964122a4f77cc080b21ec466fde41bd42c2ad171ba7b50dd93a3317e",
+  "signature": "n6cGvtzdD7Mi9quo+yPyvhBkmOqumWZIe+PBfvBfcFZFlAbUuyNVd7sJ4hO93dg2WbnSDVVEfy3w4fd5HyrgCA==",
+  "url": "/fixtures/catalog-wilds.json",
+  "fixture": true,
+  "changelog": "合成夹具，不是实数资料"
+}

@@ -1,0 +1,147 @@
+openapi: 3.0.3
+info:
+  title: MH伙伴助手 API
+  version: 0.1.0
+  description: 夹具环境的公开阅读与会员同步接口。错误体为 code、messageKey、requestId、details。
+servers:
+  - url: /
+paths:
+  /v1/packs/latest:
+    get:
+      summary: 最新资料清单
+      parameters:
+        - in: query
+          name: gameId
+          schema: {type: string}
+        - in: query
+          name: contentProfile
+          schema: {type: string}
+        - in: query
+          name: platformId
+          schema: {type: string}
+        - in: query
+          name: patchId
+          schema: {type: string}
+        - in: query
+          name: clientVersion
+          schema: {type: string}
+      responses:
+        "200": {description: 清单}
+        "304": {description: 未变化}
+        "422": {description: 无兼容版本}
+  /v1/events:
+    get:
+      summary: 活动列表
+      responses:
+        "200": {description: 列表}
+  /v1/events/{id}:
+    get:
+      summary: 活动详情
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: string}
+      responses:
+        "200": {description: 详情}
+  /v1/events/{id}/calendar.ics:
+    get:
+      summary: 日历事件
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: string}
+      responses:
+        "200": {description: ICS}
+  /v1/articles:
+    get:
+      summary: 文章
+      responses:
+        "200": {description: 列表}
+  /v1/public-builds:
+    get:
+      summary: 公开配装大厅
+      responses:
+        "200": {description: 已发布快照}
+    post:
+      summary: 发布快照
+      responses:
+        "201": {description: 已发布}
+        "401": {description: 未登录}
+  /v1/public-builds/{id}:
+    get:
+      summary: 读取已发布快照
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: string}
+      responses:
+        "200": {description: 快照}
+        "410": {description: 已撤回}
+    delete:
+      summary: 撤回
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: string}
+      responses:
+        "204": {description: 已撤回}
+        "401": {description: 未登录}
+        "403": {description: 不是作者}
+  /v1/auth/session:
+    post:
+      summary: 建立会话
+      responses:
+        "200": {description: 已登录}
+    delete:
+      summary: 退出
+      responses:
+        "204": {description: 已撤销}
+  /v1/auth/refresh:
+    post:
+      summary: 轮换会话
+      responses:
+        "200": {description: 新会话}
+  /v1/reminders/subscriptions:
+    post:
+      summary: 订阅提醒
+      responses:
+        "201": {description: 已订阅}
+  /v1/reminders/subscriptions/{id}:
+    delete:
+      summary: 取消订阅
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: string}
+      responses:
+        "204": {description: 已取消}
+  /v1/me/entitlement:
+    get:
+      summary: 会员额度
+      responses:
+        "200": {description: 额度}
+        "401": {description: 未登录}
+  /v1/sync/push:
+    post:
+      summary: 推送变更
+      responses:
+        "200": {description: 逐条结果}
+        "401": {description: 未登录}
+  /v1/sync/pull:
+    get:
+      summary: 按游标拉取
+      responses:
+        "200": {description: 变更}
+        "401": {description: 未登录}
+        "409": {description: 游标过期}
+  /v1/sync/snapshot:
+    get:
+      summary: 账户快照
+      responses:
+        "200": {description: 快照}
+        "401": {description: 未登录}

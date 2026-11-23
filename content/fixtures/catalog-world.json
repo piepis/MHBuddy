@@ -1,0 +1,865 @@
+{
+  "fixture": true,
+  "schemaVersion": 1,
+  "gameId": "world",
+  "contentProfiles": [
+    "base",
+    "iceborne"
+  ],
+  "platformId": "pc",
+  "patchId": "fixture-p1",
+  "dataRevision": "fixture-1",
+  "revisionNumber": 1,
+  "rulesetVersion": "fixture-r1",
+  "defaultLocale": "zh-Hans",
+  "entries": [
+    {
+      "kind": "monster",
+      "entryId": "fixture-jagras",
+      "rarity": 1,
+      "profiles": [
+        "base"
+      ],
+      "platforms": [
+        "pc",
+        "ps",
+        "xbox"
+      ],
+      "texts": {
+        "zh-Hans": {
+          "name": "夹具大凶豺龙",
+          "aliases": [
+            "豺龙"
+          ],
+          "summary": "合成夹具，不是游戏实数。"
+        },
+        "zh-Hant": {
+          "name": "夾具大凶豺龍",
+          "aliases": [
+            "豺龍"
+          ],
+          "summary": "合成夾具，不是遊戲實數。"
+        },
+        "en": {
+          "name": "Fixture Jagras",
+          "aliases": [
+            "jagras"
+          ],
+          "summary": "Synthetic fixture. Not live game data."
+        },
+        "ja": {
+          "name": "フィクスチャジャグラス",
+          "aliases": [
+            "ジャグラス"
+          ],
+          "summary": "合成フィクスチャ。ゲームの実数ではない。"
+        }
+      },
+      "fields": {
+        "weaknesses": [
+          {
+            "part": "头",
+            "element": "火",
+            "stars": 2,
+            "evidence": "fixture"
+          }
+        ],
+        "note": "应用宝简介把弱点列为资料类别。这里的星级是夹具。"
+      },
+      "fixture": true
+    },
+    {
+      "kind": "monster",
+      "entryId": "fixture-ice-elder",
+      "rarity": 1,
+      "profiles": [
+        "iceborne"
+      ],
+      "platforms": [
+        "pc",
+        "ps",
+        "xbox"
+      ],
+      "texts": {
+        "zh-Hans": {
+          "name": "夹具冰原古龙",
+          "aliases": [],
+          "summary": "仅冰原内容档。本体筛选应隐藏。"
+        },
+        "zh-Hant": {
+          "name": "夾具冰原古龍",
+          "aliases": [],
+          "summary": "合成夾具，不是遊戲實數。"
+        },
+        "en": {
+          "name": "Fixture Ice Elder",
+          "aliases": [],
+          "summary": "Synthetic fixture. Not live game data."
+        },
+        "ja": {
+          "name": "フィクスチャ氷原古龍",
+          "aliases": [],
+          "summary": "合成フィクスチャ。ゲームの実数ではない。"
+        }
+      },
+      "fields": {},
+      "fixture": true
+    },
+    {
+      "kind": "material",
+      "entryId": "fixture-iron-ore",
+      "rarity": 1,
+      "profiles": [
+        "base"
+      ],
+      "platforms": [
+        "pc",
+        "ps",
+        "xbox"
+      ],
+      "texts": {
+        "zh-Hans": {
+          "name": "夹具铁矿",
+          "aliases": [
+            "铁矿"
+          ],
+          "summary": "合成夹具，不是游戏实数。"
+        },
+        "zh-Hant": {
+          "name": "夾具鐵礦",
+          "aliases": [],
+          "summary": "合成夾具，不是遊戲實數。"
+        },
+        "en": {
+          "name": "Fixture Iron Ore",
+          "aliases": [
+            "iron"
+          ],
+          "summary": "Synthetic fixture. Not live game data."
+        },
+        "ja": {
+          "name": "フィクスチャ鉄鉱",
+          "aliases": [],
+          "summary": "合成フィクスチャ。ゲームの実数ではない。"
+        }
+      },
+      "fields": {},
+      "fixture": true
+    },
+    {
+      "kind": "material",
+      "entryId": "fixture-rare-ore",
+      "rarity": 6,
+      "profiles": [
+        "base"
+      ],
+      "platforms": [
+        "pc",
+        "ps",
+        "xbox"
+      ],
+      "texts": {
+        "zh-Hans": {
+          "name": "夹具稀有矿",
+          "aliases": [],
+          "summary": "合成夹具，不是游戏实数。"
+        },
+        "zh-Hant": {
+          "name": "夾具稀有礦",
+          "aliases": [],
+          "summary": "合成夾具，不是遊戲實數。"
+        },
+        "en": {
+          "name": "Fixture Rare Ore",
+          "aliases": [],
+          "summary": "Synthetic fixture. Not live game data."
+        },
+        "ja": {
+          "name": "フィクスチャ稀少鉱石",
+          "aliases": [],
+          "summary": "合成フィクスチャ。ゲームの実数ではない。"
+        }
+      },
+      "fields": {
+        "gather": "rare"
+      },
+      "fixture": true
+    },
+    {
+      "kind": "material",
+      "entryId": "fixture-ice-ore",
+      "rarity": 1,
+      "profiles": [
+        "iceborne"
+      ],
+      "platforms": [
+        "pc",
+        "ps",
+        "xbox"
+      ],
+      "texts": {
+        "zh-Hans": {
+          "name": "夹具冰原矿",
+          "aliases": [],
+          "summary": "合成夹具，不是游戏实数。"
+        },
+        "zh-Hant": {
+          "name": "夾具冰原礦",
+          "aliases": [],
+          "summary": "合成夾具，不是遊戲實數。"
+        },
+        "en": {
+          "name": "Fixture Ice Ore",
+          "aliases": [],
+          "summary": "Synthetic fixture. Not live game data."
+        },
+        "ja": {
+          "name": "フィクスチャ氷原鉱石",
+          "aliases": [],
+          "summary": "合成フィクスチャ。ゲームの実数ではない。"
+        }
+      },
+      "fields": {},
+      "fixture": true
+    },
+    {
+      "kind": "weapon",
+      "entryId": "fixture-iron-sword",
+      "rarity": 1,
+      "profiles": [
+        "base"
+      ],
+      "platforms": [
+        "pc",
+        "ps",
+        "xbox"
+      ],
+      "texts": {
+        "zh-Hans": {
+          "name": "夹具铁刀",
+          "aliases": [],
+          "summary": "合成夹具，不是游戏实数。"
+        },
+        "zh-Hant": {
+          "name": "夾具鐵刀",
+          "aliases": [],
+          "summary": "合成夾具，不是遊戲實數。"
+        },
+        "en": {
+          "name": "Fixture Iron Sword",
+          "aliases": [],
+          "summary": "Synthetic fixture. Not live game data."
+        },
+        "ja": {
+          "name": "フィクスチャ鉄刀",
+          "aliases": [],
+          "summary": "合成フィクスチャ。ゲームの実数ではない。"
+        }
+      },
+      "fields": {
+        "attack": 100,
+        "evidence": "fixture"
+      },
+      "fixture": true,
+      "part": "weapon",
+      "slots": [],
+      "skills": []
+    },
+    {
+      "kind": "weapon",
+      "entryId": "fixture-plain-weapon",
+      "rarity": 1,
+      "profiles": [
+        "base"
+      ],
+      "platforms": [
+        "pc",
+        "ps",
+        "xbox"
+      ],
+      "texts": {
+        "zh-Hans": {
+          "name": "夹具素刀",
+          "aliases": [],
+          "summary": "合成夹具，不是游戏实数。"
+        },
+        "zh-Hant": {
+          "name": "夾具素刀",
+          "aliases": [],
+          "summary": "合成夾具，不是遊戲實數。"
+        },
+        "en": {
+          "name": "Fixture Plain Blade",
+          "aliases": [],
+          "summary": "Synthetic fixture. Not live game data."
+        },
+        "ja": {
+          "name": "フィクスチャ無装飾刀",
+          "aliases": [],
+          "summary": "合成フィクスチャ。ゲームの実数ではない。"
+        }
+      },
+      "fields": {},
+      "fixture": true,
+      "part": "weapon",
+      "slots": [],
+      "skills": []
+    },
+    {
+      "kind": "armor",
+      "entryId": "fixture-fixed-mail",
+      "rarity": 1,
+      "profiles": [
+        "base"
+      ],
+      "platforms": [
+        "pc",
+        "ps",
+        "xbox"
+      ],
+      "texts": {
+        "zh-Hans": {
+          "name": "夹具固定胸甲",
+          "aliases": [],
+          "summary": "合成夹具，不是游戏实数。"
+        },
+        "zh-Hant": {
+          "name": "夾具固定胸甲",
+          "aliases": [],
+          "summary": "合成夾具，不是遊戲實數。"
+        },
+        "en": {
+          "name": "Fixture Fixed Mail",
+          "aliases": [],
+          "summary": "Synthetic fixture. Not live game data."
+        },
+        "ja": {
+          "name": "フィクスチャ固定メイル",
+          "aliases": [],
+          "summary": "合成フィクスチャ。ゲームの実数ではない。"
+        }
+      },
+      "fields": {},
+      "fixture": true,
+      "part": "chest",
+      "slots": [],
+      "skills": [
+        {
+          "skillId": "fixture-skill-s",
+          "level": 1
+        }
+      ]
+    },
+    {
+      "kind": "armor",
+      "entryId": "fixture-arms-slot",
+      "rarity": 1,
+      "profiles": [
+        "base"
+      ],
+      "platforms": [
+        "pc",
+        "ps",
+        "xbox"
+      ],
+      "texts": {
+        "zh-Hans": {
+          "name": "夹具开孔腕甲",
+          "aliases": [],
+          "summary": "合成夹具，不是游戏实数。"
+        },
+        "zh-Hant": {
+          "name": "夾具開孔腕甲",
+          "aliases": [],
+          "summary": "合成夾具，不是遊戲實數。"
+        },
+        "en": {
+          "name": "Fixture Slotted Vambrace",
+          "aliases": [],
+          "summary": "Synthetic fixture. Not live game data."
+        },
+        "ja": {
+          "name": "フィクスチャスロット腕",
+          "aliases": [],
+          "summary": "合成フィクスチャ。ゲームの実数ではない。"
+        }
+      },
+      "fields": {},
+      "fixture": true,
+      "part": "arms",
+      "slots": [
+        {
+          "index": 0,
+          "accept": "lv1"
+        }
+      ],
+      "skills": []
+    },
+    {
+      "kind": "armor",
+      "entryId": "fixture-waist-slot",
+      "rarity": 1,
+      "profiles": [
+        "base"
+      ],
+      "platforms": [
+        "pc",
+        "ps",
+        "xbox"
+      ],
+      "texts": {
+        "zh-Hans": {
+          "name": "夹具开孔腰甲",
+          "aliases": [],
+          "summary": "合成夹具，不是游戏实数。"
+        },
+        "zh-Hant": {
+          "name": "夾具開孔腰甲",
+          "aliases": [],
+          "summary": "合成夾具，不是遊戲實數。"
+        },
+        "en": {
+          "name": "Fixture Slotted Coil",
+          "aliases": [],
+          "summary": "Synthetic fixture. Not live game data."
+        },
+        "ja": {
+          "name": "フィクスチャスロット腰",
+          "aliases": [],
+          "summary": "合成フィクスチャ。ゲームの実数ではない。"
+        }
+      },
+      "fields": {},
+      "fixture": true,
+      "part": "waist",
+      "slots": [
+        {
+          "index": 0,
+          "accept": "lv1"
+        }
+      ],
+      "skills": []
+    },
+    {
+      "kind": "armor",
+      "entryId": "fixture-plain-head",
+      "rarity": 1,
+      "profiles": [
+        "base"
+      ],
+      "platforms": [
+        "pc",
+        "ps",
+        "xbox"
+      ],
+      "texts": {
+        "zh-Hans": {
+          "name": "夹具素头",
+          "aliases": [],
+          "summary": "合成夹具，不是游戏实数。"
+        },
+        "zh-Hant": {
+          "name": "夾具素頭",
+          "aliases": [],
+          "summary": "合成夾具，不是遊戲實數。"
+        },
+        "en": {
+          "name": "Fixture Plain Helm",
+          "aliases": [],
+          "summary": "Synthetic fixture. Not live game data."
+        },
+        "ja": {
+          "name": "フィクスチャ無装飾頭",
+          "aliases": [],
+          "summary": "合成フィクスチャ。ゲームの実数ではない。"
+        }
+      },
+      "fields": {},
+      "fixture": true,
+      "part": "head",
+      "slots": [],
+      "skills": []
+    },
+    {
+      "kind": "armor",
+      "entryId": "fixture-plain-legs",
+      "rarity": 1,
+      "profiles": [
+        "base"
+      ],
+      "platforms": [
+        "pc",
+        "ps",
+        "xbox"
+      ],
+      "texts": {
+        "zh-Hans": {
+          "name": "夹具素腿",
+          "aliases": [],
+          "summary": "合成夹具，不是游戏实数。"
+        },
+        "zh-Hant": {
+          "name": "夾具素脚",
+          "aliases": [],
+          "summary": "合成夾具，不是遊戲實數。"
+        },
+        "en": {
+          "name": "Fixture Plain Greaves",
+          "aliases": [],
+          "summary": "Synthetic fixture. Not live game data."
+        },
+        "ja": {
+          "name": "フィクスチャ無装飾脚",
+          "aliases": [],
+          "summary": "合成フィクスチャ。ゲームの実数ではない。"
+        }
+      },
+      "fields": {},
+      "fixture": true,
+      "part": "legs",
+      "slots": [],
+      "skills": []
+    },
+    {
+      "kind": "skill",
+      "entryId": "fixture-skill-s",
+      "rarity": 1,
+      "profiles": [
+        "base"
+      ],
+      "platforms": [
+        "pc",
+        "ps",
+        "xbox"
+      ],
+      "texts": {
+        "zh-Hans": {
+          "name": "夹具攻击",
+          "aliases": [
+            "攻击"
+          ],
+          "summary": "合成夹具，不是游戏实数。"
+        },
+        "zh-Hant": {
+          "name": "夾具攻擊",
+          "aliases": [],
+          "summary": "合成夾具，不是遊戲實數。"
+        },
+        "en": {
+          "name": "Fixture Attack",
+          "aliases": [
+            "attack"
+          ],
+          "summary": "Synthetic fixture. Not live game data."
+        },
+        "ja": {
+          "name": "フィクスチャ攻撃",
+          "aliases": [],
+          "summary": "合成フィクスチャ。ゲームの実数ではない。"
+        }
+      },
+      "fields": {},
+      "fixture": true
+    },
+    {
+      "kind": "decoration",
+      "entryId": "fixture-attack-jewel",
+      "rarity": 1,
+      "profiles": [
+        "base"
+      ],
+      "platforms": [
+        "pc",
+        "ps",
+        "xbox"
+      ],
+      "texts": {
+        "zh-Hans": {
+          "name": "夹具攻击珠",
+          "aliases": [],
+          "summary": "合成夹具，不是游戏实数。"
+        },
+        "zh-Hant": {
+          "name": "夾具攻擊珠",
+          "aliases": [],
+          "summary": "合成夾具，不是遊戲實數。"
+        },
+        "en": {
+          "name": "Fixture Attack Jewel",
+          "aliases": [],
+          "summary": "Synthetic fixture. Not live game data."
+        },
+        "ja": {
+          "name": "フィクスチャ攻撃珠",
+          "aliases": [],
+          "summary": "合成フィクスチャ。ゲームの実数ではない。"
+        }
+      },
+      "fields": {},
+      "fixture": true,
+      "slotType": "lv1",
+      "skills": [
+        {
+          "skillId": "fixture-skill-s",
+          "level": 1
+        }
+      ]
+    },
+    {
+      "kind": "charm",
+      "entryId": "fixture-charm",
+      "rarity": 1,
+      "profiles": [
+        "base"
+      ],
+      "platforms": [
+        "pc",
+        "ps",
+        "xbox"
+      ],
+      "texts": {
+        "zh-Hans": {
+          "name": "夹具护石",
+          "aliases": [],
+          "summary": "合成夹具，不是游戏实数。"
+        },
+        "zh-Hant": {
+          "name": "夾具護石",
+          "aliases": [],
+          "summary": "合成夾具，不是遊戲實數。"
+        },
+        "en": {
+          "name": "Fixture Charm",
+          "aliases": [],
+          "summary": "Synthetic fixture. Not live game data."
+        },
+        "ja": {
+          "name": "フィクスチャ護石",
+          "aliases": [],
+          "summary": "合成フィクスチャ。ゲームの実数ではない。"
+        }
+      },
+      "fields": {},
+      "fixture": true,
+      "part": "charm",
+      "slots": [],
+      "skills": []
+    },
+    {
+      "kind": "item",
+      "entryId": "fixture-potion",
+      "rarity": 1,
+      "profiles": [
+        "base"
+      ],
+      "platforms": [
+        "pc",
+        "ps",
+        "xbox"
+      ],
+      "texts": {
+        "zh-Hans": {
+          "name": "夹具回复药",
+          "aliases": [],
+          "summary": "合成夹具，不是游戏实数。"
+        },
+        "zh-Hant": {
+          "name": "夾具回復藥",
+          "aliases": [],
+          "summary": "合成夾具，不是遊戲實數。"
+        },
+        "en": {
+          "name": "Fixture Potion",
+          "aliases": [],
+          "summary": "Synthetic fixture. Not live game data."
+        },
+        "ja": {
+          "name": "フィクスチャ回復薬",
+          "aliases": [],
+          "summary": "合成フィクスチャ。ゲームの実数ではない。"
+        }
+      },
+      "fields": {},
+      "fixture": true
+    },
+    {
+      "kind": "quest",
+      "entryId": "fixture-quest",
+      "rarity": 1,
+      "profiles": [
+        "base"
+      ],
+      "platforms": [
+        "pc",
+        "ps",
+        "xbox"
+      ],
+      "texts": {
+        "zh-Hans": {
+          "name": "夹具调查任务",
+          "aliases": [],
+          "summary": "合成夹具，不是游戏实数。"
+        },
+        "zh-Hant": {
+          "name": "夾具調查任務",
+          "aliases": [],
+          "summary": "合成夾具，不是遊戲實數。"
+        },
+        "en": {
+          "name": "Fixture Quest",
+          "aliases": [],
+          "summary": "Synthetic fixture. Not live game data."
+        },
+        "ja": {
+          "name": "フィクスチャ調査",
+          "aliases": [],
+          "summary": "合成フィクスチャ。ゲームの実数ではない。"
+        }
+      },
+      "fields": {},
+      "fixture": true
+    }
+  ],
+  "relations": [
+    {
+      "type": "drops",
+      "fromKind": "monster",
+      "fromId": "fixture-jagras",
+      "toKind": "material",
+      "toId": "fixture-iron-ore"
+    },
+    {
+      "type": "craftedFrom",
+      "fromKind": "weapon",
+      "fromId": "fixture-iron-sword",
+      "toKind": "material",
+      "toId": "fixture-iron-ore"
+    },
+    {
+      "type": "grantsSkill",
+      "fromKind": "decoration",
+      "fromId": "fixture-attack-jewel",
+      "toKind": "skill",
+      "toId": "fixture-skill-s"
+    },
+    {
+      "type": "grantsSkill",
+      "fromKind": "armor",
+      "fromId": "fixture-fixed-mail",
+      "toKind": "skill",
+      "toId": "fixture-skill-s"
+    }
+  ],
+  "maps": [
+    {
+      "mapId": "fixture-ancient-forest",
+      "profiles": [
+        "base"
+      ],
+      "texts": {
+        "zh-Hans": {
+          "name": "夹具古代树",
+          "aliases": [],
+          "summary": "合成夹具，不是游戏实数。"
+        },
+        "zh-Hant": {
+          "name": "夾具古代樹",
+          "aliases": [],
+          "summary": "合成夾具，不是遊戲實數。"
+        },
+        "en": {
+          "name": "Fixture Ancient Forest",
+          "aliases": [],
+          "summary": "Synthetic fixture. Not live game data."
+        },
+        "ja": {
+          "name": "フィクスチャ古代樹",
+          "aliases": [],
+          "summary": "合成フィクスチャ。ゲームの実数ではない。"
+        }
+      },
+      "layers": [
+        {
+          "layerId": "floor-1",
+          "texts": {
+            "zh-Hans": {
+              "name": "一层",
+              "aliases": [],
+              "summary": "合成夹具，不是游戏实数。"
+            },
+            "zh-Hant": {
+              "name": "一層",
+              "aliases": [],
+              "summary": "合成夾具，不是遊戲實數。"
+            },
+            "en": {
+              "name": "Floor 1",
+              "aliases": [],
+              "summary": "Synthetic fixture. Not live game data."
+            },
+            "ja": {
+              "name": "1層",
+              "aliases": [],
+              "summary": "合成フィクスチャ。ゲームの実数ではない。"
+            }
+          }
+        },
+        {
+          "layerId": "floor-2",
+          "texts": {
+            "zh-Hans": {
+              "name": "二层",
+              "aliases": [],
+              "summary": "合成夹具，不是游戏实数。"
+            },
+            "zh-Hant": {
+              "name": "二層",
+              "aliases": [],
+              "summary": "合成夾具，不是遊戲實數。"
+            },
+            "en": {
+              "name": "Floor 2",
+              "aliases": [],
+              "summary": "Synthetic fixture. Not live game data."
+            },
+            "ja": {
+              "name": "2層",
+              "aliases": [],
+              "summary": "合成フィクスチャ。ゲームの実数ではない。"
+            }
+          }
+        }
+      ],
+      "pois": [
+        {
+          "poiId": "poi-common",
+          "layerId": "floor-1",
+          "xNorm": 0.32,
+          "yNorm": 0.48,
+          "area": "区域1",
+          "kind": "gather",
+          "resourceRef": {
+            "kind": "material",
+            "entryId": "fixture-iron-ore"
+          },
+          "conditions": "夹具：常见采集",
+          "sourceRef": "fixture"
+        },
+        {
+          "poiId": "poi-rare",
+          "layerId": "floor-2",
+          "xNorm": 0.32,
+          "yNorm": 0.48,
+          "area": "区域1",
+          "kind": "rare-gather",
+          "resourceRef": {
+            "kind": "material",
+            "entryId": "fixture-rare-ore"
+          },
+          "conditions": "夹具：可能出现",
+          "sourceRef": "fixture"
+        }
+      ]
+    }
+  ]
+}
