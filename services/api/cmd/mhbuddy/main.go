@@ -8,9 +8,12 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"mhbuddy/services/api/internal/ai"
 	"mhbuddy/services/api/internal/api"
 )
 
@@ -37,12 +40,21 @@ func main() {
 		log.Fatal(err)
 	}
 	defer pool.Close()
-	mig, err := os.ReadFile(filepath.Join(root, "services", "api", "migrations", "001_player_records.sql"))
+	entries, err := os.ReadDir(filepath.Join(root, "services", "api", "migrations"))
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := api.Migrate(ctx, pool, string(mig)); err != nil {
-		log.Fatal(err)
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
+			continue
+		}
+		mig, err := os.ReadFile(filepath.Join(root, "services", "api", "migrations", entry.Name()))
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := api.Migrate(ctx, pool, string(mig)); err != nil {
+			log.Fatal(err)
+		}
 	}
 	if err := api.Seed(ctx, pool, content); err != nil {
 		log.Fatal(err)
@@ -50,6 +62,18 @@ func main() {
 	dev := os.Getenv("MH_DEV_AUTH") == "1"
 	web := getenv("WEB_ROOT", filepath.Join(root, "apps", "web", "build", "web"))
 	srv := api.New(pool, dev, content, web)
+	cfg := ai.FromEnv()
+	var provider ai.Provider
+	switch cfg.Provider {
+	case "fake":
+		provider = ai.Fake{}
+	default:
+		if cfg.Configured() {
+			provider = &ai.ChatCompletions{BaseURL: cfg.BaseURL, APIKey: cfg.APIKey, Model: cfg.Model}
+		}
+	}
+	srv.AI = ai.New(cfg, provider, ai.NewPGQuota(pool))
+	log.Printf("ai provider=%s configured=%v fixture=%v", cfg.Provider, cfg.Configured(), cfg.Fixture)
 	port := getenv("PORT", "8080")
 	ln, err := net.Listen("tcp", "0.0.0.0:"+port)
 	if err != nil {

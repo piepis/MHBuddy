@@ -29,6 +29,9 @@ class AppModel extends ChangeNotifier {
   String? status;
   bool ready = false;
   final List<String> favorites = [];
+  Map<String, dynamic>? aiStatus;
+  final Map<String, String> savedQuery = {};
+  final Map<String, String> savedKind = {};
 
   Catalog? cat(String gameId) => gameId == 'wilds' ? wilds : world;
 
@@ -181,6 +184,23 @@ class AppModel extends ChangeNotifier {
   Future<Map<String, dynamic>> event(String id) async {
     final res = await api.send('GET', '/v1/events/$id');
     return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  Future<void> loadAiStatus() async {
+    try {
+      final res = await api.send('GET', '/v1/ai/status');
+      if (res.statusCode == 200) {
+        aiStatus = jsonDecode(res.body) as Map<String, dynamic>;
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
+  Future<Map<String, dynamic>> understand(String sentence) async {
+    final res = await api.send('POST', '/v1/ai/understand', jsonBody: {'sentence': sentence});
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    body['httpStatus'] = res.statusCode;
+    return body;
   }
 
   Future<Map<String, dynamic>> publicBuild(String id) async {

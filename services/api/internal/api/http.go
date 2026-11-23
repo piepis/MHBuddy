@@ -20,6 +20,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"mhbuddy/services/api/internal/ai"
 )
 
 type Server struct {
@@ -27,6 +29,7 @@ type Server struct {
 	DevAuth    bool
 	ContentDir string
 	WebRoot    string
+	AI         *ai.Service
 	mux        *http.ServeMux
 }
 
@@ -56,6 +59,8 @@ func New(pool *pgxpool.Pool, dev bool, contentDir, webRoot string) *Server {
 	mux.HandleFunc("POST /v1/dev/entitlement", s.devEntitlement)
 	mux.HandleFunc("POST /v1/dev/compact", s.devCompact)
 	mux.HandleFunc("GET /v1/dev/reminder-jobs", s.devJobs)
+	mux.HandleFunc("GET /v1/ai/status", s.aiStatus)
+	mux.HandleFunc("POST /v1/ai/understand", s.aiUnderstand)
 	s.mux = mux
 	return s
 }

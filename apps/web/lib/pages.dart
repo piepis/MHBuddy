@@ -447,37 +447,96 @@ class BuildsPage extends StatefulWidget {
 
 class _BuildsPageState extends State<BuildsPage> {
   bool useInventory = true;
-  int jewels = 2;
   bool reserve = false;
   bool running = false;
+  bool assumeUnlimited = false;
   int generation = 0;
   int tab = 0;
+  String? weaponId;
+  final Map<String, int> targets = {};
+  final Set<String> fixedIds = {};
+  final Set<String> excludedIds = {};
+  final Map<String, int> jewelCounts = {};
   SolveResult? result;
+  String heard = '';
   final importCtrl = TextEditingController();
+  final sentenceCtrl = TextEditingController();
   String? importMessage;
+  bool seeded = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (seeded) return;
+    seeded = true;
+    final cat = MhScope.of(context).cat(widget.gameId);
+    if (cat == null) return;
+    if (widget.gameId == 'wilds') {
+      weaponId = 'fixture-weapon-w';
+      fixedIds.addAll(['fixture-weapon-w', 'fixture-head-h']);
+      targets['fixture-skill-y'] = 1;
+    } else {
+      weaponId = 'fixture-iron-sword';
+      fixedIds.addAll(['fixture-fixed-mail', 'fixture-iron-sword']);
+      targets['fixture-skill-s'] = 3;
+      jewelCounts['fixture-attack-jewel'] = 2;
+    }
+    MhScope.of(context).loadAiStatus();
+  }
 
   @override
   void dispose() {
     importCtrl.dispose();
+    sentenceCtrl.dispose();
     super.dispose();
+  }
+
+  SolveRequest _request() {
+    final model = MhScope.of(context);
+    final wilds = widget.gameId == 'wilds';
+    return SolveRequest(
+      gameId: widget.gameId,
+      contentProfile: wilds ? 'base' : model.profile,
+      targetSkills: {for (final entry in targets.entries) if (entry.value > 0) entry.key: entry.value},
+      fixedEquipment: fixedIds.toList(),
+      excludedEquipment: excludedIds.toList(),
+      useInventory: useInventory,
+      inventory: Map<String, int>.from(jewelCounts),
+      reserved: reserve && wilds ? [ReservedSlot(part: 'weapon', index: 0)] : const [],
+    );
   }
 
   Future<void> _solve() async {
     final model = MhScope.of(context);
     final gen = ++generation;
     setState(() => running = true);
-    final wilds = widget.gameId == 'wilds';
-    final solved = await model.solve(widget.gameId, SolveRequest(
-      gameId: widget.gameId,
-      contentProfile: wilds ? 'base' : model.profile,
-      targetSkills: wilds ? {'fixture-skill-y': 1} : {'fixture-skill-s': 3},
-      fixedEquipment: wilds ? const ['fixture-weapon-w', 'fixture-head-h'] : const ['fixture-fixed-mail'],
-      useInventory: useInventory && !wilds,
-      inventory: {'fixture-attack-jewel': jewels},
-      reserved: reserve && wilds ? [ReservedSlot(part: 'weapon', index: 0)] : const [],
-    ));
+    final solved = await model.solve(widget.gameId, _request());
     if (!mounted || gen != generation) return;
     setState(() { running = false; result = solved; });
+  }
+
+  Future<void> _fromSentence() async {
+    final model = MhScope.of(context);
+    final body = await model.understand(sentenceCtrl.text);
+    if (!mounted) return;
+    if (body['httpStatus'] != 200) {
+      setState(() => heard = '模型不可用，继续用条件配装。');
+      return;
+    }
+    final cat = model.cat(widget.gameId);
+    if (cat == null) return;
+    final styles = (body['styles'] as List? ?? const []).map((e) => '$e').toList();
+    final unsupported = <String>[];
+    final mapped = targetsForStyles(styles, unsupported);
+    setState(() {
+      targets
+        ..clear()
+        ..addAll(mapped);
+      assumeUnlimited = body['assumeUnlimitedJewels'] == true;
+      useInventory = !assumeUnlimited;
+      heard = '它听成了什么：武器 ${(body['weaponNames'] as List? ?? const []).join('、')}，风格 ${styles.join('、')}${unsupported.isEmpty ? '' : '。这版规则还不能算 ${unsupported.join('、')}'}';
+    });
+    if (mapped.isNotEmpty) await _solve();
   }
 
   @override
@@ -523,11 +582,44 @@ class _BuildsPageState extends State<BuildsPage> {
               if (importMessage != null) Text(importMessage!, style: TextStyle(color: p.meta)),
             ])),
           ],
-          SwitchListTile(value: useInventory, onChanged: (v) => setState(() => useInventory = v), title: Text(l10n.t('useJewels'))),
+          if (model.aiStatus?['showButton'] == true) ...[
+            Text('用一句话配装。这句话会送到本站的配装服务，用来收成求解条件。', style: TextStyle(color: p.meta, fontSize: 13)),
+            TextField(controller: sentenceCtrl, decoration: InputDecoration(hintText: '用这把武器打这只怪', filled: true, fillColor: p.sheet)),
+            const SizedBox(height: 8),
+            MhButton(label: '生成配装', primary: true, onPressed: running ? null : _fromSentence),
+          ] else
+            Text('模型未开通，使用条件配装。', style: TextStyle(color: p.meta, fontSize: 13)),
+          if (heard.isNotEmpty) Text(heard),
+          const SizedBox(height: 8),
+          Text('条件', style: TextStyle(fontWeight: FontWeight.w700, color: p.ink)),
+          for (final skill in (model.cat(widget.gameId)?.entries.where((e) => e.kind == 'skill').toList() ?? const <CatalogEntry>[]))
+            Row(children: [
+              Expanded(child: Text(skill.displayName(model.locale, 'zh-Hans'))),
+              IconButton(onPressed: () => setState(() => targets[skill.entryId] = ((targets[skill.entryId] ?? 0) - 1).clamp(0, 7)), icon: const Icon(Icons.remove)),
+              Text('${targets[skill.entryId] ?? 0}'),
+              IconButton(onPressed: () => setState(() => targets[skill.entryId] = ((targets[skill.entryId] ?? 0) + 1).clamp(0, 7)), icon: const Icon(Icons.add)),
+            ]),
+          for (final jewel in (model.cat(widget.gameId)?.entries.where((e) => e.kind == 'decoration').toList() ?? const <CatalogEntry>[]))
+            Row(children: [
+              Expanded(child: Text(jewel.displayName(model.locale, 'zh-Hans'))),
+              IconButton(onPressed: () {
+                setState(() {
+                  jewelCounts[jewel.entryId] = ((jewelCounts[jewel.entryId] ?? 0) - 1).clamp(0, 9);
+                  model.store.setInventory(widget.gameId, jewel.entryId, jewelCounts[jewel.entryId] ?? 0);
+                });
+              }, icon: const Icon(Icons.remove)),
+              Text('${jewelCounts[jewel.entryId] ?? 0}'),
+              IconButton(onPressed: () {
+                setState(() {
+                  jewelCounts[jewel.entryId] = ((jewelCounts[jewel.entryId] ?? 0) + 1).clamp(0, 9);
+                  model.store.setInventory(widget.gameId, jewel.entryId, jewelCounts[jewel.entryId] ?? 0);
+                });
+              }, icon: const Icon(Icons.add)),
+            ]),
+          SwitchListTile(value: useInventory, onChanged: (v) => setState(() { useInventory = v; assumeUnlimited = !v; }), title: Text(l10n.t('useJewels'))),
           if (widget.gameId == 'wilds') SwitchListTile(value: reserve, onChanged: (v) => setState(() => reserve = v), title: Text(l10n.t('reserve'))),
-          if (widget.gameId == 'world') TextButton(onPressed: () => setState(() => jewels = jewels == 2 ? 1 : 2), child: Text('装饰品 $jewels')),
-          if (result != null) _ResultView(result: result!, l10n: l10n, onSave: () {
-            model.store.saveBuild(widget.gameId, 'local-${DateTime.now().millisecondsSinceEpoch}', {'title': '夹具配装'});
+          if (result != null) _ResultView(result: result!, catalog: model.cat(widget.gameId), assumeUnlimited: assumeUnlimited, l10n: l10n, onSave: () {
+            model.store.saveBuild(widget.gameId, 'local-${DateTime.now().millisecondsSinceEpoch}', {'title': '夹具配装', 'fixture': true});
           }),
           TextButton(onPressed: () => context.go('/builds/pub-fixture-wilds-1'), child: Text(l10n.t('hall'))),
         ],
@@ -537,24 +629,28 @@ class _BuildsPageState extends State<BuildsPage> {
 }
 
 class _ResultView extends StatelessWidget {
-  const _ResultView({required this.result, required this.l10n, required this.onSave});
+  const _ResultView({required this.result, required this.catalog, required this.assumeUnlimited, required this.l10n, required this.onSave});
   final SolveResult result;
+  final Catalog? catalog;
+  final bool assumeUnlimited;
   final L10n l10n;
   final VoidCallback onSave;
   @override
   Widget build(BuildContext context) {
     final p = paletteOf(context);
-    if (result.fieldErrors.isNotEmpty) return Text('${l10n.t('fieldError')}: ${result.fieldErrors.join(', ')}');
-    if (!result.searchComplete) return Text(l10n.t('partial'), style: TextStyle(color: p.meta));
-    if (result.loadouts.isEmpty) return Text(l10n.t('noResult'));
-    final first = result.loadouts.first;
+    if (catalog == null) return const SizedBox.shrink();
+    final text = explainLoadout(result: result, catalog: catalog!, assumeUnlimited: assumeUnlimited, dataRevision: catalog!.dataRevision, fixture: catalog!.fixture);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('${result.loadouts.length}', style: TextStyle(color: const Color(0xFF924247), fontWeight: FontWeight.w700)),
-      Text('${l10n.t('weaponSlots')} ${first.weaponOpen} · ${l10n.t('armorSlots')} ${first.armorOpen}'),
-      for (final piece in first.pieces) Text(piece.entryId),
-      for (final jewel in first.jewels) Text('${jewel.entryId} @ ${jewel.part}'),
-      const SizedBox(height: 8),
-      MhButton(label: l10n.t('saveBuild'), onPressed: onSave),
+      Text(text.fixtureLine, style: TextStyle(color: p.skillOn, fontWeight: FontWeight.w700)),
+      Text(result.searchComplete ? '已搜完' : l10n.t('partial'), style: TextStyle(color: p.meta)),
+      for (final line in text.skillLines) Text(line, style: TextStyle(color: p.ink, height: 1.45)),
+      Text(text.slotsLine, style: TextStyle(color: p.ink)),
+      Text(text.assumption, style: TextStyle(color: p.meta, fontSize: 13)),
+      for (final gap in text.gaps)
+        gap.checked
+            ? TextButton(onPressed: () => context.go('/g/${catalog!.gameId}/entries/monster/${gap.monsterId}'), child: Text('${gap.entryId} · ${gap.note}'))
+            : Text(gap.note, style: TextStyle(color: p.meta)),
+      if (!text.empty) MhButton(label: l10n.t('saveBuild'), onPressed: onSave),
     ]);
   }
 }
@@ -648,6 +744,19 @@ class EventDetailPage extends StatelessWidget {
             const SizedBox(height: 8),
             Text('${row['conditions']}', style: TextStyle(color: p.ink, height: 1.55)),
             Text('${row['timezone']} ${row['startsAt']} → ${row['endsAt']}', style: TextStyle(color: p.meta)),
+            for (final raw in (row['rewards'] as List? ?? const []))
+              Builder(builder: (context) {
+                final reward = Map<String, dynamic>.from(raw as Map);
+                final itemId = reward['itemId']?.toString() ?? '';
+                final names = reward['names'] is Map ? Map<String, dynamic>.from(reward['names'] as Map) : const <String, dynamic>{};
+                return TextButton(
+                  onPressed: () {
+                    final kind = model.cat(gameId)?.byId(itemId)?.kind ?? 'item';
+                    context.go('/g/$gameId/entries/$kind/$itemId');
+                  },
+                  child: Text('${names['zh-Hans'] ?? '报酬'}'),
+                );
+              }),
           ]);
         },
       ),
@@ -665,11 +774,6 @@ class PublicBuildPage extends StatelessWidget {
     final p = paletteOf(context);
     return MhFrame(
       title: l10n.t('hall'),
-      bottom: Row(children: [
-        Expanded(child: MhButton(label: l10n.t('copyMine'), primary: true, onPressed: () {})),
-        const SizedBox(width: 8),
-        Expanded(child: MhButton(label: l10n.t('copyLink'), onPressed: () => Clipboard.setData(ClipboardData(text: Uri.base.toString())))),
-      ]),
       child: FutureBuilder(
         future: model.publicBuild(id),
         builder: (context, snap) {
@@ -681,13 +785,30 @@ class PublicBuildPage extends StatelessWidget {
           if (row['httpStatus'] == 404 || row['code'] == 'NOT_FOUND') return Center(child: Text(l10n.t('missing')));
           return ListView(padding: EdgeInsets.all(p.pagePad), children: [
             Text(row['title']?.toString() ?? id, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: p.ink)),
+            Text(catalogFixtureLine(row), style: TextStyle(color: p.skillOn)),
             const SizedBox(height: 8),
             Text(const JsonEncoder.withIndent('  ').convert(row['snapshot']), style: TextStyle(color: p.ink, height: 1.45)),
+            const SizedBox(height: 12),
+            MhButton(label: l10n.t('copyMine'), primary: true, onPressed: () {
+              model.store.saveBuild(row['gameId']?.toString() ?? 'world', 'copy-$id', {'title': row['title'], 'source': id, 'snapshot': row['snapshot']});
+            }),
+            const SizedBox(height: 8),
+            MhButton(label: l10n.t('copyLink'), onPressed: () => Clipboard.setData(ClipboardData(text: Uri.base.toString()))),
+            const SizedBox(height: 8),
+            SelectableText(Uri.base.toString(), style: TextStyle(color: p.meta, fontSize: 13)),
           ]);
         },
       ),
     );
   }
+}
+
+String catalogFixtureLine(Map<String, dynamic> row) {
+  final snap = row['snapshot'];
+  if (snap is Map && snap['dataRevision'] != null) {
+    return '夹具，不是游戏实数。${snap['dataRevision']}';
+  }
+  return '夹具，不是游戏实数。';
 }
 
 class AccountPage extends StatefulWidget {
