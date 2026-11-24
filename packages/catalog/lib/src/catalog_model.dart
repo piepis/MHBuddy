@@ -113,6 +113,20 @@ class SearchHit {
   final String? fallbackLocale;
 }
 
+class MapTune {
+  const MapTune({required this.ready, required this.layerId, this.poiId, this.resourceId, this.conditions});
+  final bool ready;
+  final String layerId;
+  final String? poiId;
+  final String? resourceId;
+  final String? conditions;
+}
+
+MapTune tuneMap(Catalog? catalog, String? resourceId) {
+  if (catalog == null) return const MapTune(ready: false, layerId: 'floor-1');
+  return catalog.focusResource(resourceId);
+}
+
 class Catalog {
   Catalog({
     required this.source,
@@ -306,6 +320,17 @@ class Catalog {
 
   List<CatalogRelation> toEntry(String kind, String id) =>
       relations.where((r) => r.toKind == kind && r.toId == id).toList();
+
+  MapTune focusResource(String? resourceId, {String fallbackLayer = 'floor-1'}) {
+    if (resourceId != null && resourceId.isNotEmpty) {
+      final hits = pois(resourceId: resourceId);
+      if (hits.isNotEmpty) {
+        final poi = hits.first;
+        return MapTune(ready: true, layerId: poi.layerId, poiId: poi.poiId, resourceId: poi.resourceId, conditions: poi.conditions);
+      }
+    }
+    return MapTune(ready: true, layerId: fallbackLayer);
+  }
 
   List<MapPoi> pois({String? mapId, String? layerId, String? kind, String? resourceId}) {
     final out = <MapPoi>[];

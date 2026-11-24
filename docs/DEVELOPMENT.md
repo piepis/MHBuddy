@@ -160,7 +160,26 @@ PostgreSQL 表（启动时按文件名执行 `services/api/migrations/*.sql`）�
 
 个人数据响应带 `Cache-Control: private, no-store`。Service Worker 不缓存 `/v1/`。
 
-会员接口在 cookie 之外接受 `Authorization: Bearer`。网页仍只用 cookie。带 `Bearer` 调用 `POST /v1/auth/refresh` 时，响应才会多一个新 `token`。来源是 `https://servicewechat.com` 的写请求可以通过 CSRF 检查；其他跨站来源仍然 403。
+会员接口在 cookie 之外接受 `Authorization: Bearer`。网页仍只用 cookie。带 `Bearer` 调用 `POST /v1/auth/refresh` 时，响应才会多一个新 `token`。来源是 `https://servicewechat.com` 的写请求可以通过 CSRF 检查。没有 `Origin` 时，只有 `Referer` 以 `https://servicewechat.com/` 开头才放行，其他空来源和跨站来源仍然 403。
+
+### 一句话配装
+
+`GET /v1/ai/status` 匿名可看，只返回是否开通，不返回模型名，也不返回密钥。`POST /v1/ai/understand` 把一句话收成结构化条件。数字、技能等级和装备 id 不由模型产生。
+
+默认提供方是 xAI 的 OpenAI 兼容接口。推理主机是 `https://api.x.ai`，兼容前缀按 [xAI quickstart](https://docs.x.ai/developers/quickstart) 使用 `https://api.x.ai/v1`。调用的是无状态的 `POST /v1/chat/completions`，不走 Responses API，因此不会打开服务端保存。若以后改走 Responses API，必须带 `store=false`（文档中的 Disable storing），因为默认不保存猎人原句。
+
+| 变量 | 作用 |
+| --- | --- |
+| `MH_AI_PROVIDER` | 默认 `xai`。测试可设 `fake`。`off` 表示关闭 |
+| `MH_AI_MODEL` | 模型名。只从这里读，代码不写死型号。听懂请在 [xAI 当前模型列表](https://docs.x.ai/developers/models) 里选小而便宜的一档，不要把快速开始示例里的编程型号当成默认 |
+| `MH_AI_API_KEY` | 只放在服务端。不进仓库、不进前端、不写日志 |
+| `MH_AI_BASE_URL` | 可选。默认 `https://api.x.ai/v1`。文档地址变了再改这个变量 |
+| `MH_AI_GUEST_DAILY` | 访客每天成功听懂次数，默认 3 |
+| `MH_AI_MEMBER_DAILY` | 会员每天成功听懂次数，默认 30 |
+| `MH_AI_MONTHLY_CAP` | 全站每月成功次数硬顶，默认 100。这是次数，不是金额 |
+| `MH_CONTENT_FIXTURE` | 默认 `1`。为 `1` 时访客看不到「生成配装」，已登录的试运行账户在配好密钥后可以调用 |
+
+没有 `MH_AI_API_KEY` 或没有 `MH_AI_MODEL` 时，`showButton` 为 false，页面只保留条件配装。正式资料把 `MH_CONTENT_FIXTURE` 设为 `0` 之后，访客才会看到模型按钮，并受每日次数和月度硬顶约束。原句不落库。配置入口是进程环境变量，不是仓库里的文件。
 
 <a id="offline-sync"></a>
 
@@ -198,7 +217,7 @@ postgres://ubuntu@127.0.0.1:5432/mhbuddy?sslmode=disable
 | `make miniapp-test` | 先 build，再跑小程序逻辑测试 |
 | `make miniapp-preview` / `make miniapp-upload` | 交给 miniprogram-ci。没有 AppID 和上传密钥时退出码 2 |
 
-`make dev` 设置 `MH_DEV_AUTH=1`。最近一次在本仓库执行：`make dev` 退出码 0，`/healthz` 为 200；`make build` 退出码 0。
+`make dev` 设置 `MH_DEV_AUTH=1`。模型相关变量见上文「一句话配装」。没有密钥时不要指望 `make dev` 接通 xAI。最近一次在本仓库执行：`make dev` 退出码 0，`/healthz` 为 200；`make build` 退出码 0。
 
 <a id="testing"></a>
 
@@ -272,7 +291,7 @@ cd services/api && go run ./cmd/mhbuddy pack
 - 荒野公开简介没有地图，因此没有荒野地图页。
 - 机械武器、猫饭、极限突破只记在功能矩阵，没有做成模拟器。
 - 会员没有真实支付。额度只在开发开关下可改。
-- 浏览器里未同步的配装在整页刷新后会消失。收藏和主题会留在 IndexedDB。
+- 已登录时，配装、收藏和库存经同步写入 PostgreSQL，刷新后按会话拉回。未登录的副本留在 IndexedDB。主题也留在 IndexedDB。
 - CI 只跑 Go 测试。Flutter 和浏览器要在本地 `make verify` 与 `tests/acceptance` 里跑。
 - 微信小程序还没有 AppID，也没有上传。`touristappid` 是占位。步骤在 [miniapp.md](miniapp.md)。
 - `make dev` 依赖本机 Postgres 已经在听 5432。仓库不附带安装脚本。

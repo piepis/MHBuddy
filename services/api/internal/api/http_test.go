@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"mhbuddy/services/api/internal/ai"
 )
 
 func testServer(t *testing.T) *httptest.Server {
@@ -76,6 +78,9 @@ func do(t *testing.T, srv *httptest.Server, method, path string, body any, cooki
 	}
 	if cookie != "" {
 		req.Header.Set("Cookie", cookie)
+	}
+	if (req.Method == http.MethodPost || req.Method == http.MethodPut || req.Method == http.MethodDelete) && req.Header.Get("Origin") == "" && req.URL != nil {
+		req.Header.Set("Origin", req.URL.Scheme+"://"+req.URL.Host)
 	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -219,6 +224,7 @@ func TestQuotaAndIsolation(t *testing.T) {
 			b, _ := json.Marshal(map[string]any{"ops": []any{op(id)}})
 			req, _ := http.NewRequest("POST", srv.URL+"/v1/sync/push", bytes.NewReader(b))
 			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Origin", srv.URL)
 			req.Header.Set("Cookie", cookie)
 			res, err := http.DefaultClient.Do(req)
 			if err != nil {
@@ -415,6 +421,177 @@ func TestPackManifest(t *testing.T) {
 	}
 }
 
+func TestCsrfRejectsForeignOrigin(t *testing.T) {
+	srv := testServer(t)
+	defer srv.Close()
+	body := bytes.NewReader([]byte(`{"provider":"dev","userId":"csrf-user","displayName":"csrf-user"}`))
+	req, err := http.NewRequest(http.MethodPost, srv.URL+"/v1/auth/session", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", "https://evil.example")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusForbidden {
+		t.Fatalf("foreign origin %d", res.StatusCode)
+	}
+	got := readJSON(t, res)
+	if got["code"] != "CSRF" {
+		t.Fatalf("code %#v", got["code"])
+	}
+	if cache := res.Header.Get("Cache-Control"); cache != "private, no-store" {
+		t.Fatalf("cache %q", cache)
+	}
+}
+
+func TestAnonymousEntitlementAndSameOriginLogin(t *testing.T) {
+	srv := testServer(t)
+	defer srv.Close()
+	res := do(t, srv, http.MethodGet, "/v1/me/entitlement", nil, "")
+	if res.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("anon entitlement %d", res.StatusCode)
+	}
+	if cache := res.Header.Get("Cache-Control"); cache != "private, no-store" {
+		t.Fatalf("cache %q", cache)
+	}
+	req, err := http.NewRequest(http.MethodPost, srv.URL+"/v1/auth/session", bytes.NewReader([]byte(`{"provider":"dev","userId":"hunter-a","displayName":"hunter-a"}`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", srv.URL)
+	res, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("same origin login %d", res.StatusCode)
+	}
+}
+
+func TestAIUnavailableWhenUnset(t *testing.T) {
+	srv := testServer(t)
+	defer srv.Close()
+	res := do(t, srv, http.MethodGet, "/v1/ai/status", nil, "")
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status %d", res.StatusCode)
+	}
+	body := readJSON(t, res)
+	if body["showButton"] != false || body["reason"] != "no_key" {
+		t.Fatalf("status %#v", body)
+	}
+	res = do(t, srv, http.MethodPost, "/v1/ai/understand", map[string]string{"sentence": "秘密原句不要落库"}, "")
+	if res.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("understand %d", res.StatusCode)
+	}
+	errBody := readJSON(t, res)
+	if errBody["code"] != "AI_UNAVAILABLE" || strings.Contains(fmtSprint(errBody), "秘密原句") {
+		t.Fatalf("body %#v", errBody)
+	}
+}
+
+func TestFakeProviderQuotaDoesNotStoreSentence(t *testing.T) {
+	srv := testServer(t)
+	defer srv.Close()
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	if dsn == "" {
+		dsn = "postgres://ubuntu@127.0.0.1:5432/mhbuddy_test?sslmode=disable"
+	}
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	mig, err := os.ReadFile(filepath.Join(findRoot(t), "services", "api", "migrations", "002_ai_usage.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Migrate(ctx, pool, string(mig)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `TRUNCATE TABLE ai_daily, ai_monthly`); err != nil {
+		t.Fatal(err)
+	}
+	content := filepath.Join(findRoot(t), "content", "fixtures")
+	server := New(pool, true, content, "")
+	server.AI = ai.New(ai.Config{
+		Provider: "fake", Model: "fake", APIKey: "test-key", Fixture: true,
+		GuestDaily: 3, MemberDaily: 1, MonthlyCap: 10,
+	}, ai.Fake{}, ai.NewPGQuota(pool))
+	live := httptest.NewServer(server)
+	defer live.Close()
+
+	sentence := "秘密原句不要落库 世界 铁刀 输出"
+	req, err := http.NewRequest(http.MethodPost, live.URL+"/v1/ai/understand", bytes.NewReader([]byte(`{"sentence":"`+sentence+`"}`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", live.URL)
+	req.Header.Set("X-MH-AI-Voucher", "browser-voucher")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusForbidden {
+		t.Fatalf("guest fixture %d", res.StatusCode)
+	}
+	var guestRows int
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM ai_daily WHERE subject LIKE 'guest:%'`).Scan(&guestRows); err != nil {
+		t.Fatal(err)
+	}
+	if guestRows != 0 {
+		t.Fatalf("guest charged %d", guestRows)
+	}
+
+	cookie := login(t, live, "hunter-a")
+	res = do(t, live, http.MethodPost, "/v1/ai/understand", map[string]string{"sentence": sentence}, cookie)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("member %d", res.StatusCode)
+	}
+	understood := readJSON(t, res)
+	if understood["gameId"] != "world" || strings.Contains(fmtSprint(understood), "秘密原句") {
+		t.Fatalf("understood %#v", understood)
+	}
+	res = do(t, live, http.MethodPost, "/v1/ai/understand", map[string]string{"sentence": sentence}, cookie)
+	if res.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("cap %d", res.StatusCode)
+	}
+	var stored string
+	if err := pool.QueryRow(ctx, `SELECT COALESCE(string_agg(subject || ' ' || used::text, ','), '') FROM ai_daily`).Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored != "user:hunter-a 1" {
+		t.Fatalf("daily %q", stored)
+	}
+	var cols string
+	if err := pool.QueryRow(ctx, `SELECT COALESCE(string_agg(column_name, ',' ORDER BY column_name), '') FROM information_schema.columns WHERE table_name IN ('ai_daily','ai_monthly')`).Scan(&cols); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range strings.Split(cols, ",") {
+		switch name {
+		case "subject", "day", "used", "month":
+		default:
+			t.Fatalf("unexpected column %s in %s", name, cols)
+		}
+	}
+	if strings.Contains(stored, "秘密原句") || strings.Contains(cols, "sentence") || strings.Contains(cols, "ip") {
+		t.Fatalf("pii stored %s %s", stored, cols)
+	}
+}
+
+func fmtSprint(v any) string {
+	b, _ := json.Marshal(v)
+	return string(b)
+}
+
 func urlQuery(s string) string {
 	return stringsReplace(s)
 }
@@ -456,6 +633,9 @@ func doHeaders(t *testing.T, srv *httptest.Server, method, path string, body any
 	}
 	for k, v := range headers {
 		req.Header.Set(k, v)
+	}
+	if _, set := headers["Origin"]; !set && (req.Method == http.MethodPost || req.Method == http.MethodPut || req.Method == http.MethodDelete) && req.URL != nil {
+		req.Header.Set("Origin", req.URL.Scheme+"://"+req.URL.Host)
 	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -580,6 +760,10 @@ func TestWechatOriginAndBrowserCSRF(t *testing.T) {
 	ok := doHeaders(t, srv, "POST", "/v1/auth/wechat", map[string]string{"code": "dev:hunter-a"}, map[string]string{"Origin": "https://servicewechat.com"})
 	if ok.StatusCode != 200 {
 		t.Fatalf("servicewechat %d", ok.StatusCode)
+	}
+	referer := doHeaders(t, srv, "POST", "/v1/auth/wechat", map[string]string{"code": "dev:hunter-a"}, map[string]string{"Origin": "", "Referer": "https://servicewechat.com/touristappid/0/page-frame.html"})
+	if referer.StatusCode != 200 {
+		t.Fatalf("referer %d", referer.StatusCode)
 	}
 	bad := doHeaders(t, srv, "POST", "/v1/auth/session", map[string]string{"provider": "dev", "userId": "hunter-a", "displayName": "hunter-a"}, map[string]string{"Origin": "https://evil.example"})
 	if bad.StatusCode != 403 {

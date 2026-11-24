@@ -20,6 +20,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"mhbuddy/services/api/internal/ai"
 )
 
 type Server struct {
@@ -31,6 +33,7 @@ type Server struct {
 	WechatAppSecret string
 	WechatEndpoint  string
 	WechatHTTP      *http.Client
+	AI              *ai.Service
 	mux             *http.ServeMux
 }
 
@@ -61,6 +64,8 @@ func New(pool *pgxpool.Pool, dev bool, contentDir, webRoot string) *Server {
 	mux.HandleFunc("POST /v1/dev/entitlement", s.devEntitlement)
 	mux.HandleFunc("POST /v1/dev/compact", s.devCompact)
 	mux.HandleFunc("GET /v1/dev/reminder-jobs", s.devJobs)
+	mux.HandleFunc("GET /v1/ai/status", s.aiStatus)
+	mux.HandleFunc("POST /v1/ai/understand", s.aiUnderstand)
 	s.mux = mux
 	return s
 }
@@ -84,7 +89,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func csrfOK(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 	if origin == "" {
-		return true
+		return wechatReferer(r)
 	}
 	host := r.Host
 	if xf := r.Header.Get("X-Forwarded-Host"); xf != "" {
@@ -97,6 +102,11 @@ func csrfOK(r *http.Request) bool {
 	}
 	// 小程序网络请求可能带这个来源。普通网页改不了自己的 Origin。
 	return strings.EqualFold(o, "servicewechat.com")
+}
+
+func wechatReferer(r *http.Request) bool {
+	ref := strings.ToLower(r.Header.Get("Referer"))
+	return strings.HasPrefix(ref, "https://servicewechat.com/")
 }
 
 func writeErr(w http.ResponseWriter, status int, code, key string, details any) {
@@ -385,7 +395,7 @@ func (s *Server) entitlement(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 500, "INTERNAL", "internal", nil)
 		return
 	}
-	writeJSON(w, 200, map[string]any{"planId": plan, "quotaBytes": quota, "usedBytes": used, "expiresAt": exp}, true)
+	writeJSON(w, 200, map[string]any{"userId": user, "planId": plan, "quotaBytes": quota, "usedBytes": used, "expiresAt": exp}, true)
 }
 
 func (s *Server) devEntitlement(w http.ResponseWriter, r *http.Request) {

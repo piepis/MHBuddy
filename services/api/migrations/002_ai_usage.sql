@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS ai_daily (
+  subject TEXT NOT NULL,
+  day DATE NOT NULL,
+  used INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (subject, day)
+);
+
+CREATE TABLE IF NOT EXISTS ai_monthly (
+  month TEXT PRIMARY KEY,
+  used INTEGER NOT NULL DEFAULT 0
+);

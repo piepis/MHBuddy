@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"mhbuddy/services/api/internal/ai"
 	"mhbuddy/services/api/internal/api"
 )
 
@@ -48,6 +50,18 @@ func main() {
 	srv := api.New(pool, dev, content, web)
 	srv.WechatAppID = os.Getenv("WECHAT_APPID")
 	srv.WechatAppSecret = os.Getenv("WECHAT_APPSECRET")
+	cfg := ai.FromEnv()
+	var provider ai.Provider
+	switch cfg.Provider {
+	case "fake":
+		provider = ai.Fake{}
+	default:
+		if cfg.Configured() {
+			provider = &ai.ChatCompletions{BaseURL: cfg.BaseURL, APIKey: cfg.APIKey, Model: cfg.Model}
+		}
+	}
+	srv.AI = ai.New(cfg, provider, ai.NewPGQuota(pool))
+	log.Printf("ai provider=%s configured=%v fixture=%v", cfg.Provider, cfg.Configured(), cfg.Fixture)
 	port := getenv("PORT", "8080")
 	ln, err := net.Listen("tcp", "0.0.0.0:"+port)
 	if err != nil {

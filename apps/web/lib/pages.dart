@@ -7,12 +7,15 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'download_stub.dart' if (dart.library.html) 'download_web.dart';
 import 'l10n.dart';
 import 'shell.dart';
 import 'theme.dart';
+import 'time_format.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({this.routeGameId, super.key});
+  final String? routeGameId;
   @override
   State<HomePage> createState() => _HomePageState();
 }
@@ -25,6 +28,9 @@ class _HomePageState extends State<HomePage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final model = MhScope.of(context);
+    final routeGame = widget.routeGameId;
+    model.adoptRouteGame(routeGame);
     final id = MhScope.of(context).gameId;
     if (seenGame == id) return;
     seenGame = id;
@@ -60,18 +66,18 @@ class _HomePageState extends State<HomePage> {
         child: event == null
             ? Text(l10n.t('noEvent'), style: TextStyle(color: p.ink, fontSize: 15, height: 1.55))
             : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${titles[model.locale] ?? titles['zh-Hans']}', style: TextStyle(color: p.ink, fontSize: 16, fontWeight: FontWeight.w600)),
+                spoken('${titles[model.locale] ?? titles['zh-Hans']}', TextStyle(color: p.ink, fontSize: 16, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
-                Text('${event['timezone']} · ${event['endsAt']}', style: TextStyle(color: p.meta, fontSize: 13)),
-                Text('${l10n.t('rewardSearch')}：$rewardName', style: TextStyle(color: p.meta, fontSize: 13)),
+                spoken('${event['timezone']} · ${formatEventInstant(event['endsAt'])}', TextStyle(color: p.meta, fontSize: 13)),
+                spoken('${l10n.t('rewardSearch')}：$rewardName', TextStyle(color: p.meta, fontSize: 13)),
               ]),
       ),
       SectionCard(
         title: l10n.t('dataCard'),
         action: MhButton(label: model.offlineReady ? l10n.t('offlineReady') : l10n.t('viewUpdate'), onPressed: () => context.go('/offline')),
-        child: Text(
+        child: spoken(
           model.gameId == 'wilds' ? l10n.t('wilds') : l10n.t('world'),
-          style: TextStyle(color: p.ink, fontSize: 16, fontWeight: FontWeight.w600),
+          TextStyle(color: p.ink, fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
       if (model.gameId == 'world')
@@ -142,6 +148,37 @@ class _CatalogPageState extends State<CatalogPage> {
       ('material', '素材'),
       ('decoration', '饰品'),
     ];
+    final profileBar = widget.gameId == 'world'
+        ? Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Wrap(spacing: 8, children: [
+              Semantics(
+                button: true,
+                selected: model.profile != 'iceborne',
+                label: l10n.t('profileBase'),
+                child: ChoiceChip(
+                  label: Text(l10n.t('profileBase'), style: TextStyle(color: model.profile != 'iceborne' ? Colors.white : p.ink, fontWeight: FontWeight.w600)),
+                  selected: model.profile != 'iceborne',
+                  selectedColor: p.primary,
+                  backgroundColor: p.card,
+                  onSelected: (_) => model.setProfile('base'),
+                ),
+              ),
+              Semantics(
+                button: true,
+                selected: model.profile == 'iceborne',
+                label: l10n.t('profileIce'),
+                child: ChoiceChip(
+                  label: Text(l10n.t('profileIce'), style: TextStyle(color: model.profile == 'iceborne' ? Colors.white : p.ink, fontWeight: FontWeight.w600)),
+                  selected: model.profile == 'iceborne',
+                  selectedColor: p.primary,
+                  backgroundColor: p.card,
+                  onSelected: (_) => model.setProfile('iceborne'),
+                ),
+              ),
+            ]),
+          )
+        : const SizedBox.shrink();
     final filterBar = SizedBox(
       height: 40,
       child: ListView(
@@ -199,9 +236,9 @@ class _CatalogPageState extends State<CatalogPage> {
             ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 SizedBox(width: 220, child: filterBar),
                 const SizedBox(width: 16),
-                Expanded(child: ListView(children: [MhSearch(hint: l10n.t('searchWiki'), controller: search, onChanged: (_) => setState(() {})), const SizedBox(height: 12), list])),
+                Expanded(child: ListView(children: [profileBar, MhSearch(hint: l10n.t('searchWiki'), controller: search, onChanged: (_) => setState(() {})), const SizedBox(height: 12), list])),
               ])
-            : ListView(children: [MhSearch(hint: l10n.t('searchWiki'), controller: search, onChanged: (_) => setState(() {})), const SizedBox(height: 12), filterBar, const SizedBox(height: 12), list]),
+            : ListView(children: [profileBar, MhSearch(hint: l10n.t('searchWiki'), controller: search, onChanged: (_) => setState(() {})), const SizedBox(height: 12), filterBar, const SizedBox(height: 12), list]),
       ),
     );
   }
@@ -263,12 +300,18 @@ class EntryPage extends StatelessWidget {
                 ]),
                 const SizedBox(height: 12),
                 for (final rel in cat!.fromEntry(kind, entryId))
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(cat.byId(rel.toId)?.displayName(model.locale, cat.defaultLocale) ?? rel.toId, style: TextStyle(color: p.ink, fontWeight: FontWeight.w600)),
-                    subtitle: Text(rel.type, style: TextStyle(color: p.meta)),
-                    trailing: Icon(LucideIcons.chevronRight, color: p.meta),
+                  _RelationLink(
+                    name: cat.byId(rel.toId)?.displayName(model.locale, cat.defaultLocale) ?? rel.toId,
+                    type: rel.type,
+                    palette: p,
                     onTap: () => context.go('/g/$gameId/entries/${rel.toKind}/${rel.toId}'),
+                  ),
+                for (final rel in cat.toEntry(kind, entryId))
+                  _RelationLink(
+                    name: cat.byId(rel.fromId)?.displayName(model.locale, cat.defaultLocale) ?? rel.fromId,
+                    type: rel.type,
+                    palette: p,
+                    onTap: () => context.go('/g/$gameId/entries/${rel.fromKind}/${rel.fromId}'),
                   ),
                 if (pois.isNotEmpty)
                   SectionCard(
@@ -282,6 +325,29 @@ class EntryPage extends StatelessWidget {
                 ],
               ],
             ),
+    );
+  }
+}
+
+class _RelationLink extends StatelessWidget {
+  const _RelationLink({required this.name, required this.type, required this.palette, required this.onTap});
+  final String name;
+  final String type;
+  final MhPalette palette;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: '$name $type',
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        title: Text(name, style: TextStyle(color: palette.ink, fontWeight: FontWeight.w600)),
+        subtitle: Text(type, style: TextStyle(color: palette.meta)),
+        trailing: Icon(LucideIcons.chevronRight, color: palette.meta),
+        onTap: onTap,
+      ),
     );
   }
 }
@@ -324,14 +390,15 @@ class _MapPageState extends State<MapPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (tuned) return;
-    tuned = true;
     final cat = MhScope.of(context).cat('world');
-    final resource = widget.resourceId;
-    if (cat == null || resource == null || resource.isEmpty) return;
+    final tune = tuneMap(cat, widget.resourceId);
+    if (!tune.ready) return;
+    tuned = true;
+    layer = tune.layerId;
+    if (tune.poiId == null || cat == null) return;
     for (final map in cat.maps) {
       for (final poi in map.pois) {
-        if (poi.resourceId == resource) {
-          layer = poi.layerId;
+        if (poi.poiId == tune.poiId) {
           selected = poi;
           return;
         }
@@ -357,34 +424,40 @@ class _MapPageState extends State<MapPage> {
       maxScale: 3,
       child: AspectRatio(
         aspectRatio: wide ? 1.2 : 1,
-        child: Stack(children: [
-          const Positioned.fill(child: CustomPaint(painter: _PaperMapPainter())),
-          for (final poi in pois)
-            Positioned(
-              left: poi.xNorm * 280,
-              top: poi.yNorm * 280,
-              child: GestureDetector(
-                onTap: () => setState(() => selected = poi),
-                child: Container(
-                  width: 16,
-                  height: 16,
-                  decoration: BoxDecoration(
-                    color: kinds.contains(poi.kind) ? p.accent : p.meta,
-                    shape: BoxShape.circle,
-                    border: selected?.poiId == poi.poiId ? Border.all(color: p.ink, width: 3) : null,
+        child: LayoutBuilder(builder: (context, constraints) {
+          return Stack(children: [
+            const Positioned.fill(child: CustomPaint(painter: _PaperMapPainter())),
+            for (final poi in pois)
+              Positioned(
+                left: poi.xNorm * constraints.maxWidth,
+                top: poi.yNorm * constraints.maxHeight,
+                child: Semantics(
+                  button: true,
+                  label: poi.resourceId,
+                  child: GestureDetector(
+                    onTap: () => setState(() => selected = poi),
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: kinds.contains(poi.kind) ? p.accent : p.meta,
+                        shape: BoxShape.circle,
+                        border: selected?.poiId == poi.poiId ? Border.all(color: p.ink, width: 3) : null,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-        ]),
+          ]);
+        }),
       ),
     );
     final info = selected == null
-        ? Text(wide ? '点一个标记查看素材' : l10n.t('notDownloaded'), style: TextStyle(color: p.meta))
+        ? spoken('点一个标记查看素材', TextStyle(color: p.meta))
         : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('${selected!.kind} · ${selected!.layerId}', style: TextStyle(color: p.meta, fontSize: 13)),
-            Text(selected!.resourceId, style: TextStyle(color: p.ink, fontSize: 16, fontWeight: FontWeight.w700)),
-            Text('${selected!.area} · ${selected!.conditions}', style: TextStyle(color: p.ink, height: 1.45)),
+            spoken('${selected!.kind} · ${selected!.layerId}', TextStyle(color: p.meta, fontSize: 13)),
+            spoken(selected!.resourceId, TextStyle(color: p.ink, fontSize: 16, fontWeight: FontWeight.w700)),
+            spoken('${selected!.area} · ${selected!.conditions}', TextStyle(color: p.ink, height: 1.45)),
             const SizedBox(height: 8),
             MhButton(label: l10n.t('viewMaterial'), primary: true, onPressed: () => context.go('/g/world/entries/${selected!.resourceKind}/${selected!.resourceId}')),
           ]);
@@ -447,37 +520,94 @@ class BuildsPage extends StatefulWidget {
 
 class _BuildsPageState extends State<BuildsPage> {
   bool useInventory = true;
-  int jewels = 2;
   bool reserve = false;
   bool running = false;
+  bool assumeUnlimited = false;
   int generation = 0;
   int tab = 0;
+  String? weaponId;
+  final Map<String, int> targets = {};
+  final Set<String> fixedIds = {};
+  final Set<String> excludedIds = {};
+  final Map<String, int> jewelCounts = {};
   SolveResult? result;
+  String heard = '';
   final importCtrl = TextEditingController();
+  final sentenceCtrl = TextEditingController();
   String? importMessage;
+  bool seeded = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (seeded) return;
+    final cat = MhScope.of(context).cat(widget.gameId);
+    if (cat == null) return;
+    seeded = true;
+    final seed = seedFor(widget.gameId);
+    weaponId = seed.weaponId;
+    fixedIds.addAll(seed.fixedIds);
+    targets.addAll(seed.targets);
+    jewelCounts.addAll(seed.jewelCounts);
+    for (final entry in seed.jewelCounts.entries) {
+      MhScope.of(context).store.setInventory(widget.gameId, entry.key, entry.value);
+    }
+    MhScope.of(context).loadAiStatus();
+  }
 
   @override
   void dispose() {
     importCtrl.dispose();
+    sentenceCtrl.dispose();
     super.dispose();
+  }
+
+  SolveRequest _request() {
+    final model = MhScope.of(context);
+    final wilds = widget.gameId == 'wilds';
+    return SolveRequest(
+      gameId: widget.gameId,
+      contentProfile: wilds ? 'base' : model.profile,
+      targetSkills: {for (final entry in targets.entries) if (entry.value > 0) entry.key: entry.value},
+      fixedEquipment: fixedIds.toList(),
+      excludedEquipment: excludedIds.toList(),
+      useInventory: useInventory,
+      inventory: Map<String, int>.from(jewelCounts),
+      reserved: reserve && wilds ? [ReservedSlot(part: 'weapon', index: 0)] : const [],
+    );
   }
 
   Future<void> _solve() async {
     final model = MhScope.of(context);
     final gen = ++generation;
     setState(() => running = true);
-    final wilds = widget.gameId == 'wilds';
-    final solved = await model.solve(widget.gameId, SolveRequest(
-      gameId: widget.gameId,
-      contentProfile: wilds ? 'base' : model.profile,
-      targetSkills: wilds ? {'fixture-skill-y': 1} : {'fixture-skill-s': 3},
-      fixedEquipment: wilds ? const ['fixture-weapon-w', 'fixture-head-h'] : const ['fixture-fixed-mail'],
-      useInventory: useInventory && !wilds,
-      inventory: {'fixture-attack-jewel': jewels},
-      reserved: reserve && wilds ? [ReservedSlot(part: 'weapon', index: 0)] : const [],
-    ));
+    final solved = await model.solve(widget.gameId, _request());
     if (!mounted || gen != generation) return;
     setState(() { running = false; result = solved; });
+  }
+
+  Future<void> _fromSentence() async {
+    final model = MhScope.of(context);
+    final body = await model.understand(sentenceCtrl.text);
+    if (!mounted) return;
+    if (body['httpStatus'] != 200) {
+      setState(() => heard = '模型不可用，继续用条件配装。');
+      return;
+    }
+    final cat = model.cat(widget.gameId);
+    if (cat == null) return;
+    final styles = (body['styles'] as List? ?? const []).map((e) => '$e').toList();
+    final unsupported = <String>[];
+    final mapped = targetsForStyles(styles, unsupported);
+    setState(() {
+      targets
+        ..clear()
+        ..addAll(mapped);
+      assumeUnlimited = body['assumeUnlimitedJewels'] == true;
+      useInventory = !assumeUnlimited;
+      heard = '它听成了什么：武器 ${(body['weaponNames'] as List? ?? const []).join('、')}，风格 ${styles.join('、')}${unsupported.isEmpty ? '' : '。这版规则还不能算 ${unsupported.join('、')}'}';
+    });
+    if (mapped.isNotEmpty) await _solve();
   }
 
   @override
@@ -523,11 +653,59 @@ class _BuildsPageState extends State<BuildsPage> {
               if (importMessage != null) Text(importMessage!, style: TextStyle(color: p.meta)),
             ])),
           ],
-          SwitchListTile(value: useInventory, onChanged: (v) => setState(() => useInventory = v), title: Text(l10n.t('useJewels'))),
-          if (widget.gameId == 'wilds') SwitchListTile(value: reserve, onChanged: (v) => setState(() => reserve = v), title: Text(l10n.t('reserve'))),
-          if (widget.gameId == 'world') TextButton(onPressed: () => setState(() => jewels = jewels == 2 ? 1 : 2), child: Text('装饰品 $jewels')),
-          if (result != null) _ResultView(result: result!, l10n: l10n, onSave: () {
-            model.store.saveBuild(widget.gameId, 'local-${DateTime.now().millisecondsSinceEpoch}', {'title': '夹具配装'});
+          if (model.aiStatus?['showButton'] == true) ...[
+            Text('用一句话配装。这句话会送到本站的配装服务，用来收成求解条件。', style: TextStyle(color: p.meta, fontSize: 13)),
+            TextField(controller: sentenceCtrl, decoration: InputDecoration(hintText: '用这把武器打这只怪', filled: true, fillColor: p.sheet)),
+            const SizedBox(height: 8),
+            MhButton(label: '生成配装', primary: true, onPressed: running ? null : _fromSentence),
+          ] else
+            Text('模型未开通，使用条件配装。', style: TextStyle(color: p.meta, fontSize: 13)),
+          if (heard.isNotEmpty) Text(heard),
+          const SizedBox(height: 8),
+          Text('条件', style: TextStyle(fontWeight: FontWeight.w700, color: p.ink)),
+          for (final skill in (model.cat(widget.gameId)?.entries.where((e) => e.kind == 'skill').toList() ?? const <CatalogEntry>[]))
+            Row(children: [
+              Expanded(child: spoken(skill.displayName(model.locale, 'zh-Hans'), TextStyle(color: p.ink))),
+              IconButton(onPressed: () => setState(() => targets[skill.entryId] = ((targets[skill.entryId] ?? 0) - 1).clamp(0, 7)), icon: const Icon(Icons.remove)),
+              spoken('${targets[skill.entryId] ?? 0}', TextStyle(color: p.ink)),
+              IconButton(onPressed: () => setState(() => targets[skill.entryId] = ((targets[skill.entryId] ?? 0) + 1).clamp(0, 7)), icon: const Icon(Icons.add)),
+            ]),
+          for (final jewel in (model.cat(widget.gameId)?.entries.where((e) => e.kind == 'decoration').toList() ?? const <CatalogEntry>[]))
+            Row(children: [
+              Expanded(child: spoken(jewel.displayName(model.locale, 'zh-Hans'), TextStyle(color: p.ink))),
+              IconButton(onPressed: () {
+                setState(() {
+                  jewelCounts[jewel.entryId] = ((jewelCounts[jewel.entryId] ?? 0) - 1).clamp(0, 9);
+                  model.store.setInventory(widget.gameId, jewel.entryId, jewelCounts[jewel.entryId] ?? 0);
+                });
+              }, icon: const Icon(Icons.remove)),
+              spoken('${jewelCounts[jewel.entryId] ?? 0}', TextStyle(color: p.ink)),
+              IconButton(onPressed: () {
+                setState(() {
+                  jewelCounts[jewel.entryId] = ((jewelCounts[jewel.entryId] ?? 0) + 1).clamp(0, 9);
+                  model.store.setInventory(widget.gameId, jewel.entryId, jewelCounts[jewel.entryId] ?? 0);
+                });
+              }, icon: const Icon(Icons.add)),
+            ]),
+          SwitchListTile(value: useInventory, onChanged: (v) => setState(() { useInventory = v; assumeUnlimited = !v; }), title: Text(l10n.t('useJewels'))),
+          if (widget.gameId == 'wilds')
+            Semantics(
+              label: l10n.t('reserve'),
+              toggled: reserve,
+              container: true,
+              child: SwitchListTile(value: reserve, onChanged: (v) => setState(() => reserve = v), title: Text(l10n.t('reserve'))),
+            ),
+          if (result != null) _ResultView(result: result!, catalog: model.cat(widget.gameId), assumeUnlimited: assumeUnlimited, l10n: l10n, onSave: () {
+            final solved = result;
+            final loadout = solved == null || solved.loadouts.isEmpty ? null : solved.loadouts.first;
+            final payload = persistedLoadout(
+              title: '夹具配装',
+              fixture: true,
+              dataRevision: model.cat(widget.gameId)?.dataRevision ?? 'fixture-1',
+              tags: const ['夹具'],
+              loadout: loadout,
+            );
+            model.saveLoadout(widget.gameId, 'local-${DateTime.now().millisecondsSinceEpoch}', payload);
           }),
           TextButton(onPressed: () => context.go('/builds/pub-fixture-wilds-1'), child: Text(l10n.t('hall'))),
         ],
@@ -537,24 +715,32 @@ class _BuildsPageState extends State<BuildsPage> {
 }
 
 class _ResultView extends StatelessWidget {
-  const _ResultView({required this.result, required this.l10n, required this.onSave});
+  const _ResultView({required this.result, required this.catalog, required this.assumeUnlimited, required this.l10n, required this.onSave});
   final SolveResult result;
+  final Catalog? catalog;
+  final bool assumeUnlimited;
   final L10n l10n;
   final VoidCallback onSave;
   @override
   Widget build(BuildContext context) {
     final p = paletteOf(context);
-    if (result.fieldErrors.isNotEmpty) return Text('${l10n.t('fieldError')}: ${result.fieldErrors.join(', ')}');
-    if (!result.searchComplete) return Text(l10n.t('partial'), style: TextStyle(color: p.meta));
-    if (result.loadouts.isEmpty) return Text(l10n.t('noResult'));
-    final first = result.loadouts.first;
+    if (catalog == null) return const SizedBox.shrink();
+    final text = explainLoadout(result: result, catalog: catalog!, assumeUnlimited: assumeUnlimited, dataRevision: catalog!.dataRevision, fixture: catalog!.fixture);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('${result.loadouts.length}', style: TextStyle(color: const Color(0xFF924247), fontWeight: FontWeight.w700)),
-      Text('${l10n.t('weaponSlots')} ${first.weaponOpen} · ${l10n.t('armorSlots')} ${first.armorOpen}'),
-      for (final piece in first.pieces) Text(piece.entryId),
-      for (final jewel in first.jewels) Text('${jewel.entryId} @ ${jewel.part}'),
-      const SizedBox(height: 8),
-      MhButton(label: l10n.t('saveBuild'), onPressed: onSave),
+      spoken(text.fixtureLine, TextStyle(color: p.skillOn, fontWeight: FontWeight.w700)),
+      spoken(result.searchComplete ? '已搜完' : l10n.t('partial'), TextStyle(color: p.meta)),
+      for (final line in text.skillLines) spoken(line, TextStyle(color: p.ink, height: 1.45)),
+      spoken(text.slotsLine, TextStyle(color: p.ink)),
+      spoken(text.assumption, TextStyle(color: p.meta, fontSize: 13)),
+      for (final gap in text.gaps)
+        gap.checked
+            ? Semantics(
+                button: true,
+                label: '${gap.entryId} · ${gap.note}',
+                child: TextButton(onPressed: () => context.go('/g/${catalog!.gameId}/entries/monster/${gap.monsterId}'), child: Text('${gap.entryId} · ${gap.note}')),
+              )
+            : spoken(gap.note, TextStyle(color: p.meta)),
+      if (!text.empty) MhButton(label: l10n.t('saveBuild'), onPressed: onSave),
     ]);
   }
 }
@@ -619,10 +805,17 @@ class _EventsPageState extends State<EventsPage> {
   }
 }
 
-class EventDetailPage extends StatelessWidget {
+class EventDetailPage extends StatefulWidget {
   const EventDetailPage({required this.gameId, required this.id, super.key});
   final String gameId;
   final String id;
+  @override
+  State<EventDetailPage> createState() => _EventDetailPageState();
+}
+
+class _EventDetailPageState extends State<EventDetailPage> {
+  String notice = '';
+
   @override
   Widget build(BuildContext context) {
     final model = MhScope.of(context);
@@ -630,29 +823,92 @@ class EventDetailPage extends StatelessWidget {
     final p = paletteOf(context);
     return MhFrame(
       title: l10n.t('events'),
-      gameId: gameId,
+      gameId: widget.gameId,
       inner: true,
       child: FutureBuilder(
-        future: model.event(id),
+        future: model.event(widget.id),
         builder: (context, snap) {
-          if (snap.hasError) return MhButton(label: l10n.t('retry'), primary: true, onPressed: () => context.go('/g/$gameId/events/$id'));
+          if (snap.hasError) return MhButton(label: l10n.t('retry'), primary: true, onPressed: () => context.go('/g/${widget.gameId}/events/${widget.id}'));
           final row = snap.data;
           if (row == null) return const Center(child: CircularProgressIndicator());
           if (row['code'] != null) return Text(l10n.t('missing'));
           final titles = (row['titles'] as Map?)?.cast<String, dynamic>() ?? {};
+          final rewards = _rewardList(row['rewards']);
+          final progress = eventProgress(row['startsAt'], row['endsAt'], DateTime.now()).clamp(0, 1).toDouble();
           return ListView(padding: EdgeInsets.all(p.pagePad), children: [
-            Text('${titles[model.locale] ?? titles['zh-Hans'] ?? id}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: p.dark ? p.gold : p.ink)),
-            Text('${l10n.t('verified')} ${row['verifiedAt']}', style: TextStyle(color: p.meta, fontSize: 13)),
+            spoken('${titles[model.locale] ?? titles['zh-Hans'] ?? widget.id}', TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: p.dark ? p.gold : p.ink)),
+            spoken('${l10n.t('verified')} ${formatEventInstant(row['verifiedAt'])}', TextStyle(color: p.meta, fontSize: 13)),
             const SizedBox(height: 8),
-            Container(height: 10, decoration: BoxDecoration(color: p.dark ? p.bar : p.barOff, borderRadius: BorderRadius.circular(999)), child: FractionallySizedBox(widthFactor: 0.6, alignment: Alignment.centerLeft, child: DecoratedBox(decoration: BoxDecoration(color: p.dark ? const Color(0xFFFE9700) : p.accent, borderRadius: BorderRadius.circular(999))))),
+            Container(
+              height: 10,
+              decoration: BoxDecoration(color: p.dark ? p.bar : p.barOff, borderRadius: BorderRadius.circular(999)),
+              child: FractionallySizedBox(
+                widthFactor: progress,
+                alignment: Alignment.centerLeft,
+                child: DecoratedBox(decoration: BoxDecoration(color: p.dark ? const Color(0xFFFE9700) : p.accent, borderRadius: BorderRadius.circular(999))),
+              ),
+            ),
             const SizedBox(height: 8),
-            Text('${row['conditions']}', style: TextStyle(color: p.ink, height: 1.55)),
-            Text('${row['timezone']} ${row['startsAt']} → ${row['endsAt']}', style: TextStyle(color: p.meta)),
+            spoken('${row['conditions']}', TextStyle(color: p.ink, height: 1.55)),
+            spoken('${row['timezone']} ${formatEventInstant(row['startsAt'])} → ${formatEventInstant(row['endsAt'])}', TextStyle(color: p.meta)),
+            for (final reward in rewards)
+              Builder(builder: (context) {
+                final itemId = reward['itemId']?.toString() ?? '';
+                final names = reward['names'] is Map ? Map<String, dynamic>.from(reward['names'] as Map) : const <String, dynamic>{};
+                final label = '${names[model.locale] ?? names['zh-Hans'] ?? '报酬'}';
+                return Semantics(
+                  button: true,
+                  label: label,
+                  child: TextButton(
+                    onPressed: () {
+                      final kind = model.cat(widget.gameId)?.byId(itemId)?.kind ?? 'item';
+                      context.go('/g/${widget.gameId}/entries/$kind/$itemId');
+                    },
+                    child: Text(label, style: TextStyle(color: p.ink, fontSize: 16, fontWeight: FontWeight.w700)),
+                  ),
+                );
+              }),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              MhButton(label: l10n.t('subscribe'), primary: true, onPressed: () async {
+                final res = await model.api.send('POST', '/v1/reminders/subscriptions', jsonBody: {
+                  'eventId': widget.id,
+                  'platformId': 'pc',
+                  'kind': 'start',
+                  'revokeToken': 'browser-${widget.id}',
+                });
+                if (!mounted) return;
+                setState(() => notice = res.statusCode == 201 || res.statusCode == 200 ? '已订阅提醒' : '订阅未完成');
+              }),
+              MhButton(label: l10n.t('calendar'), onPressed: () async {
+                final res = await model.api.send('GET', '/v1/events/${widget.id}/calendar.ics');
+                if (!mounted) return;
+                if (res.statusCode == 200) {
+                  downloadText('${widget.id}.ics', res.body, 'text/calendar');
+                  setState(() => notice = '已下载日历');
+                } else {
+                  setState(() => notice = '日历未完成');
+                }
+              }),
+            ]),
+            if (notice.isNotEmpty) spoken(notice, TextStyle(color: p.ink, fontSize: 14)),
           ]);
         },
       ),
     );
   }
+}
+
+List<Map<String, dynamic>> _rewardList(Object? raw) {
+  if (raw is String && raw.isNotEmpty) {
+    final decoded = jsonDecode(raw);
+    return _rewardList(decoded);
+  }
+  if (raw is! List) return const [];
+  return [
+    for (final item in raw)
+      if (item is Map) Map<String, dynamic>.from(item),
+  ];
 }
 
 class PublicBuildPage extends StatelessWidget {
@@ -665,11 +921,6 @@ class PublicBuildPage extends StatelessWidget {
     final p = paletteOf(context);
     return MhFrame(
       title: l10n.t('hall'),
-      bottom: Row(children: [
-        Expanded(child: MhButton(label: l10n.t('copyMine'), primary: true, onPressed: () {})),
-        const SizedBox(width: 8),
-        Expanded(child: MhButton(label: l10n.t('copyLink'), onPressed: () => Clipboard.setData(ClipboardData(text: Uri.base.toString())))),
-      ]),
       child: FutureBuilder(
         future: model.publicBuild(id),
         builder: (context, snap) {
@@ -681,13 +932,43 @@ class PublicBuildPage extends StatelessWidget {
           if (row['httpStatus'] == 404 || row['code'] == 'NOT_FOUND') return Center(child: Text(l10n.t('missing')));
           return ListView(padding: EdgeInsets.all(p.pagePad), children: [
             Text(row['title']?.toString() ?? id, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: p.ink)),
+            Text(catalogFixtureLine(row), style: TextStyle(color: p.skillOn)),
             const SizedBox(height: 8),
             Text(const JsonEncoder.withIndent('  ').convert(row['snapshot']), style: TextStyle(color: p.ink, height: 1.45)),
+            const SizedBox(height: 12),
+            MhButton(label: l10n.t('copyMine'), primary: true, onPressed: () {
+              final snap = row['snapshot'];
+              final payload = snap is Map
+                  ? persistedPublic(Map<String, dynamic>.from(snap), sourceId: id)
+                  : <String, dynamic>{'title': row['title'], 'source': id, 'fixture': true};
+              model.saveLoadout(row['gameId']?.toString() ?? 'world', 'copy-$id', payload);
+            }),
+            const SizedBox(height: 8),
+            MhButton(label: l10n.t('copyLink'), onPressed: () => Clipboard.setData(ClipboardData(text: Uri.base.toString()))),
+            const SizedBox(height: 8),
+            SelectableText(Uri.base.toString(), style: TextStyle(color: p.meta, fontSize: 13)),
           ]);
         },
       ),
     );
   }
+}
+
+Widget spoken(String text, TextStyle style) {
+  if (text.isEmpty) return const SizedBox.shrink();
+  return Semantics(
+    label: text,
+    container: true,
+    child: ExcludeSemantics(child: Text(text, style: style)),
+  );
+}
+
+String catalogFixtureLine(Map<String, dynamic> row) {
+  final snap = row['snapshot'];
+  if (snap is Map && snap['dataRevision'] != null) {
+    return '夹具，不是游戏实数。${snap['dataRevision']}';
+  }
+  return '夹具，不是游戏实数。';
 }
 
 class AccountPage extends StatefulWidget {
@@ -697,8 +978,15 @@ class AccountPage extends StatefulWidget {
 }
 
 class _AccountPageState extends State<AccountPage> {
-  final userCtrl = TextEditingController(text: 'hunter-a');
   String info = '';
+
+  Future<void> _enter(String user) async {
+    final model = MhScope.of(context);
+    if (model.userId != null && model.userId != user) await model.logout();
+    await model.login(user);
+    final ent = await model.entitlement();
+    if (mounted) setState(() => info = '$ent');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -722,11 +1010,20 @@ class _AccountPageState extends State<AccountPage> {
           ]),
         ),
         const SizedBox(height: 12),
-        if (model.userId == null) MhButton(label: l10n.t('loginSync'), onPressed: () async {
-          await model.login(userCtrl.text.trim());
-          final ent = await model.entitlement();
-          setState(() => info = '$ent');
-        }) else MhButton(label: l10n.t('logout'), onPressed: () async { await model.logout(); setState(() => info = ''); }),
+        if (model.userId == null) ...[
+          MhButton(label: '${l10n.t('loginSync')} hunter-a', onPressed: () => _enter('hunter-a')),
+          const SizedBox(height: 8),
+          MhButton(label: '${l10n.t('loginSync')} hunter-b', onPressed: () => _enter('hunter-b')),
+        ] else ...[
+          MhButton(label: model.userId == 'hunter-a' ? '${l10n.t('loginSync')} hunter-b' : '${l10n.t('loginSync')} hunter-a', onPressed: () => _enter(model.userId == 'hunter-a' ? 'hunter-b' : 'hunter-a')),
+          const SizedBox(height: 8),
+          MhButton(label: l10n.t('sync'), onPressed: () async {
+            final body = await model.syncBuilds();
+            if (mounted) setState(() => info = body);
+          }),
+          const SizedBox(height: 8),
+          MhButton(label: l10n.t('logout'), onPressed: () async { await model.logout(); setState(() => info = ''); }),
+        ],
         const SizedBox(height: 12),
         _group(p, [
           _row(p, LucideIcons.star, l10n.t('favorite'), '${model.favorites.length}'),
