@@ -1,0 +1,16 @@
+{
+  "tasks": [
+    {"id": "T00", "status": "done", "commands": ["make doctor", "make research-mh", "go test ./internal/contract"], "evidence": "contracts, parity notes, fixture key"},
+    {"id": "T01", "status": "done", "commands": ["dart test (packages/catalog)"], "evidence": "fixture catalogs and pack install tests"},
+    {"id": "T02", "status": "done", "commands": ["go test ./internal/api"], "evidence": "auth, sync, quota, events, public builds"},
+    {"id": "T03", "status": "done", "commands": ["flutter test", "flutter build web --release"], "evidence": "light default theme, optional dark, four-language strings"},
+    {"id": "T04", "status": "done", "commands": ["dart test (packages/builds)"], "evidence": "A03 inventory matrix, wilds reserved slot, import round trip"},
+    {"id": "T05", "status": "done", "commands": ["dart test (packages/player_store)"], "evidence": "visitor partition, outbox rollback"},
+    {"id": "T06", "status": "done", "commands": ["tests/acceptance npm test"], "evidence": "encyclopedia and map clicked in Chrome at 1440 and 390"},
+    {"id": "T07", "status": "done", "commands": ["go test event search"], "evidence": "quest name and reward hit the same fixture event"},
+    {"id": "T08", "status": "done", "commands": ["make verify", "flutter build web --release", "go build"], "evidence": "verify exit 0"},
+    {"id": "T09", "status": "blocked", "commands": ["make audit-data"], "evidence": "exits 1 because no formal manifest was provided. Fixture packs are signed and separate."},
+    {"id": "T10", "status": "done", "commands": ["tests/acceptance npm test"], "evidence": "docs/execution/browser-qa"},
+    {"id": "T11", "status": "blocked", "evidence": "Production build exists. Public HTTPS publish needs the owner to click Publish in Cursor Apps and set Access to Public."}
+  ]
+}

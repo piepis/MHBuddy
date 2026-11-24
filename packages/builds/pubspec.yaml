@@ -1,0 +1,14 @@
+name: builds
+description: Build solver and wilds import codec for MH伙伴助手.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  catalog:
+    path: ../catalog
+
+dev_dependencies:
+  test: ^1.25.8

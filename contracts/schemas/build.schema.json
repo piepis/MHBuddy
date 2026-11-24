@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mhbuddy.local/schemas/build.schema.json",
+  "title": "MHBuddy build file",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "schemaVersion", "gameId", "contentProfile", "platformId", "patchId", "dataRevision", "rulesetVersion", "title", "weapon", "armor", "decorations", "tags"],
+  "properties": {
+    "format": {"const": "mhbuddy.build"},
+    "schemaVersion": {"type": "integer", "minimum": 1},
+    "gameId": {"enum": ["world", "wilds"]},
+    "contentProfile": {"type": "string", "minLength": 1},
+    "platformId": {"type": "string", "minLength": 1},
+    "patchId": {"type": "string", "minLength": 1},
+    "dataRevision": {"type": "string", "minLength": 1},
+    "rulesetVersion": {"type": "string", "minLength": 1},
+    "title": {"type": "string", "maxLength": 80},
+    "weapon": {"type": "object"},
+    "armor": {"type": "array", "maxItems": 16},
+    "decorations": {"type": "array", "maxItems": 64},
+    "tags": {"type": "array", "maxItems": 16, "items": {"type": "string", "maxLength": 24}},
+    "weaponType": {"type": "string"},
+    "rarity": {"type": "integer"}
+  }
+}
