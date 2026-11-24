@@ -95,6 +95,35 @@ try {
   const after = await textOf(fav);
   check('favorite removed', after.includes('\n0') || after.includes('收藏\n0') || !after.includes('收藏\n1'), after.slice(0, 800));
   await fav.close();
+
+  const pubCtx = await browser.newContext();
+  const pub = await pubCtx.newPage({ viewport: { width: 1440, height: 900 }, locale: 'zh-CN' });
+  await open(pub, '/builds/pub-fixture-wilds-1');
+  const firstScreen = await textOf(pub);
+  check('public structure', firstScreen.includes('武器：fixture-weapon-w') && firstScreen.includes('护石/珠子：') && !firstScreen.includes('customizations'), firstScreen.slice(0, 800));
+  const copy = pub.getByRole('button', { name: '复制到我的配装' });
+  await copy.waitFor({ state: 'visible', timeout: 15000 });
+  const box = await copy.boundingBox();
+  const view = pub.viewportSize();
+  const inView = box != null && view != null && box.y >= 0 && box.y + box.height <= view.height;
+  check('copy build in view', inView && firstScreen.includes('复制到我的配装'), JSON.stringify({ box, view }));
+  await copy.click();
+  await pub.getByText('已复制到我的配装').first().waitFor({ timeout: 10000 });
+  await open(pub, '/me');
+  await pub.getByText('配装').first().waitFor({ timeout: 10000 });
+  const mine = await textOf(pub);
+  check('copied to my builds', /配装[\s\S]{0,40}1/.test(mine), mine.slice(0, 800));
+  const phone = await pubCtx.newPage({ viewport: { width: 390, height: 844 }, locale: 'zh-CN' });
+  await phone.goto(base + '/builds/pub-fixture-wilds-1', { waitUntil: 'domcontentloaded', timeout: 60000 });
+  const phoneCopy = phone.getByRole('button', { name: '复制到我的配装' });
+  await phoneCopy.waitFor({ state: 'visible', timeout: 15000 });
+  const phoneBox = await phoneCopy.boundingBox();
+  const phoneView = phone.viewportSize();
+  const phoneInView = phoneBox != null && phoneView != null && phoneBox.y >= 0 && phoneBox.y + phoneBox.height <= phoneView.height;
+  check('copy build in phone view', phoneInView && (await textOf(phone)).includes('复制到我的配装'), JSON.stringify({ phoneBox, phoneView }));
+  await phone.close();
+  await pub.close();
+  await pubCtx.close();
 } finally {
   await browser.close();
 }

@@ -382,7 +382,10 @@ class MhButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: label,
-      child: SizedBox(
+      enabled: onPressed != null,
+      onTap: onPressed,
+      child: ExcludeSemantics(
+        child: SizedBox(
         height: 32,
         child: FilledButton(
           onPressed: onPressed,
@@ -396,6 +399,7 @@ class MhButton extends StatelessWidget {
             textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           ),
           child: Text(label),
+        ),
         ),
       ),
     );
