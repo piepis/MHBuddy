@@ -8,6 +8,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'download_stub.dart' if (dart.library.html) 'download_web.dart';
+import 'external_nav_stub.dart' if (dart.library.html) 'external_nav_web.dart';
 import 'l10n.dart';
 import 'shell.dart';
 import 'theme.dart';
@@ -95,7 +96,7 @@ class _HomePageState extends State<HomePage> {
         children: [
           GameSwitch(),
           const SizedBox(height: 12),
-          MhSearch(hint: l10n.t('searchHome'), controller: search, onChanged: (_) {}),
+          MhSearch(hint: l10n.t('searchHome'), controller: search, onChanged: (_) => model.trackSearch(model.gameId, search.text)),
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerRight,
@@ -236,9 +237,9 @@ class _CatalogPageState extends State<CatalogPage> {
             ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 SizedBox(width: 220, child: filterBar),
                 const SizedBox(width: 16),
-                Expanded(child: ListView(children: [profileBar, MhSearch(hint: l10n.t('searchWiki'), controller: search, onChanged: (_) => setState(() {})), const SizedBox(height: 12), list])),
+                Expanded(child: ListView(children: [profileBar, MhSearch(hint: l10n.t('searchWiki'), controller: search, onChanged: (_) { setState(() {}); model.trackSearch(widget.gameId, search.text); }), const SizedBox(height: 12), list])),
               ])
-            : ListView(children: [profileBar, MhSearch(hint: l10n.t('searchWiki'), controller: search, onChanged: (_) => setState(() {})), const SizedBox(height: 12), filterBar, const SizedBox(height: 12), list]),
+            : ListView(children: [profileBar, MhSearch(hint: l10n.t('searchWiki'), controller: search, onChanged: (_) { setState(() {}); model.trackSearch(widget.gameId, search.text); }), const SizedBox(height: 12), filterBar, const SizedBox(height: 12), list]),
       ),
     );
   }
@@ -549,10 +550,19 @@ class _BuildsPageState extends State<BuildsPage> {
     fixedIds.addAll(seed.fixedIds);
     targets.addAll(seed.targets);
     jewelCounts.addAll(seed.jewelCounts);
+    final model = MhScope.of(context);
+    var queued = false;
     for (final entry in seed.jewelCounts.entries) {
-      MhScope.of(context).store.setInventory(widget.gameId, entry.key, entry.value);
+      final have = model.store.inventoryOf(widget.gameId, entry.key);
+      if (have == 0) {
+        model.store.setInventory(widget.gameId, entry.key, entry.value);
+        queued = true;
+      } else {
+        jewelCounts[entry.key] = have;
+      }
     }
-    MhScope.of(context).loadAiStatus();
+    if (queued) model.syncBuilds();
+    model.loadAiStatus();
   }
 
   @override
@@ -584,6 +594,8 @@ class _BuildsPageState extends State<BuildsPage> {
     final solved = await model.solve(widget.gameId, _request());
     if (!mounted || gen != generation) return;
     setState(() { running = false; result = solved; });
+    final styles = targets.entries.where((entry) => entry.value > 0).map((entry) => entry.key).toList();
+    await model.trackBuild(gameId: widget.gameId, weaponId: weaponId ?? '', styles: styles);
   }
 
   Future<void> _fromSentence() async {
@@ -594,6 +606,7 @@ class _BuildsPageState extends State<BuildsPage> {
       setState(() => heard = '模型不可用，继续用条件配装。');
       return;
     }
+    await model.recordAiUsage(widget.gameId, body);
     final cat = model.cat(widget.gameId);
     if (cat == null) return;
     final styles = (body['styles'] as List? ?? const []).map((e) => '$e').toList();
@@ -676,14 +689,14 @@ class _BuildsPageState extends State<BuildsPage> {
               IconButton(onPressed: () {
                 setState(() {
                   jewelCounts[jewel.entryId] = ((jewelCounts[jewel.entryId] ?? 0) - 1).clamp(0, 9);
-                  model.store.setInventory(widget.gameId, jewel.entryId, jewelCounts[jewel.entryId] ?? 0);
+                  model.noteInventory(widget.gameId, jewel.entryId, jewelCounts[jewel.entryId] ?? 0);
                 });
               }, icon: const Icon(Icons.remove)),
               spoken('${jewelCounts[jewel.entryId] ?? 0}', TextStyle(color: p.ink)),
               IconButton(onPressed: () {
                 setState(() {
                   jewelCounts[jewel.entryId] = ((jewelCounts[jewel.entryId] ?? 0) + 1).clamp(0, 9);
-                  model.store.setInventory(widget.gameId, jewel.entryId, jewelCounts[jewel.entryId] ?? 0);
+                  model.noteInventory(widget.gameId, jewel.entryId, jewelCounts[jewel.entryId] ?? 0);
                 });
               }, icon: const Icon(Icons.add)),
             ]),
@@ -766,7 +779,10 @@ class _EventsPageState extends State<EventsPage> {
 
   Future<void> _load() async {
     try {
-      final list = await MhScope.of(context).events(widget.gameId, q: name.text, reward: reward.text);
+      final model = MhScope.of(context);
+      final query = [name.text, reward.text].where((part) => part.trim().isNotEmpty).join(' ');
+      if (query.isNotEmpty) model.trackSearch(widget.gameId, query);
+      final list = await model.events(widget.gameId, q: name.text, reward: reward.text);
       if (mounted) setState(() { rows = list; error = null; });
     } catch (e) {
       if (mounted) setState(() => error = '$e');
@@ -944,7 +960,10 @@ class PublicBuildPage extends StatelessWidget {
               model.saveLoadout(row['gameId']?.toString() ?? 'world', 'copy-$id', payload);
             }),
             const SizedBox(height: 8),
-            MhButton(label: l10n.t('copyLink'), onPressed: () => Clipboard.setData(ClipboardData(text: Uri.base.toString()))),
+            MhButton(label: l10n.t('copyLink'), onPressed: () {
+              model.trackShare(id);
+              Clipboard.setData(ClipboardData(text: Uri.base.toString()));
+            }),
             const SizedBox(height: 8),
             SelectableText(Uri.base.toString(), style: TextStyle(color: p.meta, fontSize: 13)),
           ]);
@@ -1041,6 +1060,7 @@ class _AccountPageState extends State<AccountPage> {
             child: _row(p, LucideIcons.sun, l10n.t('theme'), model.themeName == 'dark' ? '深色' : '浅色', onTap: () => model.setTheme(model.themeName == 'dark' ? 'light' : 'dark')),
           ),
           _row(p, LucideIcons.download, l10n.t('offline'), model.offlineReady ? l10n.t('offlineReady') : l10n.t('notDownloaded'), onTap: () => context.go('/offline')),
+          _row(p, LucideIcons.shield, l10n.t('privacy'), '', onTap: () => openSitePath('/privacy')),
         ]),
       ]),
     );

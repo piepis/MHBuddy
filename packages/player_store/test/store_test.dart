@@ -23,9 +23,12 @@ void main() {
     expect(store.builds('world'), isEmpty);
   });
 
-  test('inventory quantity is local', () {
+  test('inventory quantity is queued for sync', () {
     final store = PlayerStore();
     store.setInventory('world', 'fixture-attack-jewel', 2);
+    store.setInventory('world', 'fixture-charm', 1, kind: 'talisman');
     expect(store.inventoryOf('world', 'fixture-attack-jewel'), 2);
+    expect(store.outbox.where((op) => op['recordType'] == 'inventory'), hasLength(2));
+    expect(store.outbox.last['payload']['kind'], 'talisman');
   });
 }

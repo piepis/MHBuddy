@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:builds/builds.dart';
@@ -32,6 +33,9 @@ class AppModel extends ChangeNotifier {
   Map<String, dynamic>? aiStatus;
   final Map<String, String> savedQuery = {};
   final Map<String, String> savedKind = {};
+  Timer? _searchTimer;
+  String _lastSearch = '';
+  String _lastLocation = '';
 
   Catalog? cat(String gameId) => gameId == 'wilds' ? wilds : world;
 
@@ -75,6 +79,7 @@ class AppModel extends ChangeNotifier {
         store.usePartition(id);
         await syncBuilds();
         await pullSnapshot();
+        await pullPreferences();
       }
     } catch (e) {
       status = '$e';
@@ -97,7 +102,7 @@ class AppModel extends ChangeNotifier {
     themeName = name == 'dark' ? 'dark' : 'light';
     applyDataTheme(themeName);
     notifyListeners();
-    _save();
+    unawaited(persistPreferences());
   }
 
   void setGame(String id) {
@@ -115,12 +120,51 @@ class AppModel extends ChangeNotifier {
   void setLocale(String code) {
     locale = code;
     notifyListeners();
-    _save();
+    unawaited(persistPreferences());
   }
 
   void setProfile(String value) {
     profile = value;
     notifyListeners();
+    unawaited(persistPreferences());
+  }
+
+  Future<void> persistPreferences() async {
+    await _save();
+    if (userId == null) return;
+    try {
+      await api.send('PUT', '/v1/me/preferences', jsonBody: {
+        'locale': locale,
+        'theme': themeName,
+        'contentProfile': profile,
+      });
+    } catch (_) {}
+  }
+
+  Future<void> pullPreferences() async {
+    if (userId == null) return;
+    try {
+      final res = await api.send('GET', '/v1/me/preferences');
+      if (res.statusCode != 200) return;
+      final json = jsonDecode(res.body) as Map<String, dynamic>;
+      final theme = json['theme'];
+      if (theme == 'light' || theme == 'dark') {
+        themeName = theme as String;
+        applyDataTheme(themeName);
+      }
+      const locales = ['zh-Hans', 'zh-Hant', 'en', 'ja'];
+      final loc = json['locale'];
+      if (loc is String && locales.contains(loc)) locale = loc;
+      final prof = json['contentProfile'];
+      if (prof == 'base' || prof == 'iceborne') profile = prof as String;
+    } catch (_) {}
+  }
+
+  Future<void> noteInventory(String gameId, String entryId, int quantity, {String kind = 'decoration'}) async {
+    store.setInventory(gameId, entryId, quantity, kind: kind);
+    await _persistPlayer();
+    notifyListeners();
+    if (userId != null) await syncBuilds();
   }
 
   void toggleFavorite(String gameId, String kind, String entryId) {
@@ -188,6 +232,7 @@ class AppModel extends ChangeNotifier {
       notifyListeners();
       await syncBuilds();
       await pullSnapshot();
+      await persistPreferences();
     }
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
@@ -276,6 +321,141 @@ class AppModel extends ChangeNotifier {
         notifyListeners();
       }
     } catch (_) {}
+  }
+
+  void trackLocation(Uri uri) {
+    final signature = uri.toString();
+    if (signature == _lastLocation) return;
+    _lastLocation = signature;
+    final path = uri.path;
+    final game = _gameOf(path);
+    final kind = _kindOf(path);
+    final entry = _entryOf(path);
+    final publicId = path.startsWith('/builds/') ? path.split('/').last : '';
+    final content = game == 'wilds' ? 'base' : profile;
+    unawaited(_collect({
+      'type': 'page_view',
+      'path': path,
+      'gameId': game,
+      'contentProfile': content,
+      'kind': kind,
+      'entryId': entry,
+      'publicId': publicId,
+    }));
+    final q = uri.queryParameters['q'] ?? '';
+    if (q.trim().isNotEmpty) {
+      unawaited(_collect({
+        'type': 'search',
+        'path': path,
+        'gameId': game,
+        'contentProfile': content,
+        'query': q,
+      }));
+    }
+    if ((kind == 'weapon' || kind == 'monster') && entry.isNotEmpty) {
+      unawaited(_collect({
+        'type': 'catalog_view',
+        'path': path,
+        'gameId': game,
+        'contentProfile': content,
+        'kind': kind,
+        'entryId': entry,
+      }));
+    }
+  }
+
+  void trackSearch(String gameId, String query) {
+    _searchTimer?.cancel();
+    _searchTimer = Timer(const Duration(milliseconds: 500), () {
+      final q = query.trim();
+      if (q.isEmpty || q == _lastSearch) return;
+      _lastSearch = q;
+      unawaited(_collect({
+        'type': 'search',
+        'gameId': gameId,
+        'contentProfile': gameId == 'wilds' ? 'base' : profile,
+        'query': q,
+        'path': '/g/$gameId/entries',
+      }));
+    });
+  }
+
+  Future<void> trackBuild({required String gameId, String weaponId = '', String monsterId = '', List<String> styles = const []}) {
+    return _collect({
+      'type': 'build_generate',
+      'gameId': gameId,
+      'contentProfile': gameId == 'wilds' ? 'base' : profile,
+      'weaponId': weaponId,
+      'monsterId': monsterId,
+      'styles': styles,
+      'path': '/g/$gameId/builds',
+    });
+  }
+
+  Future<void> trackShare(String publicId) {
+    return _collect({
+      'type': 'build_share',
+      'publicId': publicId,
+      'path': '/builds/$publicId',
+    });
+  }
+
+  Future<void> recordAiUsage(String gameId, Map<String, dynamic> understood) async {
+    List<String> resolve(Object? names, String kind) {
+      final catalog = cat(gameId);
+      if (catalog == null || names is! List) return const [];
+      final out = <String>[];
+      for (final name in names) {
+        final q = '$name'.trim();
+        if (q.isEmpty) continue;
+        final hits = catalog.search(profile: gameId == 'wilds' ? 'base' : profile, locale: locale, query: q, kind: kind);
+        final exact = hits.where((hit) => hit.entry.entryId == q || hit.entry.displayName(locale, catalog.defaultLocale) == q).toList();
+        if (exact.length == 1) out.add(exact.first.entry.entryId);
+      }
+      return out;
+    }
+
+    final weapons = resolve(understood['weaponNames'], 'weapon');
+    final monsters = resolve(understood['monsterNames'], 'monster');
+    final styles = (understood['styles'] as List? ?? const []).map((item) => '$item'.trim()).where((item) => item.isNotEmpty && item.runes.length <= 16).toList();
+    try {
+      await api.send('POST', '/v1/ai/usage', jsonBody: {
+        'gameId': gameId,
+        'contentProfile': gameId == 'wilds' ? 'base' : profile,
+        'weaponIds': weapons,
+        'monsterIds': monsters,
+        'styles': styles,
+        'entryIds': [...weapons, ...monsters],
+        'inventoryIds': resolve(understood['ownedText'], 'decoration'),
+        'excludedIds': resolve(understood['excludeNames'], 'armor'),
+        'assumeUnlimitedJewels': understood['assumeUnlimitedJewels'] == true,
+        'counted': understood['httpStatus'] == 200,
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _collect(Map<String, dynamic> body) async {
+    try {
+      await api.send('POST', '/v1/analytics/collect', jsonBody: body);
+    } catch (_) {}
+  }
+
+  String _gameOf(String path) {
+    final parts = path.split('/');
+    if (parts.length > 2 && parts[1] == 'g' && (parts[2] == 'world' || parts[2] == 'wilds')) return parts[2];
+    return '';
+  }
+
+  String _kindOf(String path) {
+    final parts = path.split('/');
+    if (parts.length > 5 && parts[3] == 'entries') return parts[4];
+    return '';
+  }
+
+  String _entryOf(String path) {
+    final parts = path.split('/');
+    if (parts.length > 5 && parts[3] == 'entries') return parts[5];
+    return '';
   }
 
   Future<Map<String, dynamic>> understand(String sentence) async {

@@ -49,6 +49,9 @@ void main() {
       ),
     ],
   );
+  router.routeInformationProvider.addListener(() {
+    model.trackLocation(router.routeInformationProvider.value.uri);
+  });
   runApp(MhApp(model: model, router: router));
   SemanticsBinding.instance.ensureSemantics();
   model.boot();

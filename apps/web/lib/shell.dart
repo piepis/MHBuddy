@@ -3,6 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'app_model.dart';
+import 'external_nav_stub.dart' if (dart.library.html) 'external_nav_web.dart';
 import 'l10n.dart';
 import 'theme.dart';
 
@@ -90,6 +91,7 @@ class MhFrame extends StatelessWidget {
               },
             ),
             ListTile(leading: Icon(LucideIcons.download, color: p.ink), title: Text(l10n.t('offline')), onTap: () { Navigator.pop(context); context.go('/offline'); }),
+            ListTile(leading: Icon(LucideIcons.shield, color: p.ink), title: Text(l10n.t('privacy')), onTap: () { Navigator.pop(context); openSitePath('/privacy'); }),
           ],
         ),
       ),
