@@ -1,0 +1,14 @@
+<view class="theme-{{theme}}">
+  <view class="head"><view class="article-title">{{title}}</view></view>
+  <view wx:if="{{retracted || missing}}" class="note">没有装备表。</view>
+  <view wx:else class="card">
+    <view class="bar">装备</view>
+    <view class="card-body">
+      <view class="kv" wx:for="{{lines}}" wx:key="entryId">
+        <text>{{item.slot}}</text>
+        <text class="meta">{{item.entryId}}</text>
+      </view>
+      <view class="meta" wx:if="{{tagsText}}">{{tagsText}}</view>
+    </view>
+  </view>
+</view>

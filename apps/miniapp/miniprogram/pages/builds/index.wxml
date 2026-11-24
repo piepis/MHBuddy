@@ -1,0 +1,15 @@
+<view class="theme-{{theme}}">
+  <view class="card">
+    <view class="bar">公开配装</view>
+    <view class="card-body">只读已发布快照。私稿不会出现在这里。</view>
+  </view>
+  <view class="banner" wx:if="{{banner}}">{{banner}}</view>
+  <view wx:if="{{!rows.length}}" class="note">没有符合的条目</view>
+  <view wx:for="{{rows}}" wx:key="id" class="row" data-id="{{item.id}}" bindtap="open">
+    <view class="row-main">
+      <view class="row-title">{{item.title}}</view>
+      <view class="meta">{{item.meta}}</view>
+    </view>
+    <text class="chev">›</text>
+  </view>
+</view>

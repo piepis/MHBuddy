@@ -1,0 +1,33 @@
+<view class="theme-{{theme}}">
+  <view wx:if="{{missing}}" class="note">没有这条活动。</view>
+  <block wx:else>
+    <view class="head"><view class="article-title">{{title}}</view></view>
+    <view class="meta pad">{{meta}}</view>
+    <view class="note">{{note}}</view>
+    <view class="card">
+      <view class="bar">任务</view>
+      <view class="card-body">
+        <view class="kv"><text>条件</text><text class="meta">{{conditions}}</text></view>
+      </view>
+    </view>
+    <view class="card">
+      <view class="bar">时间</view>
+      <view class="card-body">
+        <view class="timeline"><view class="timeline-on"></view></view>
+        <view>{{when}}</view>
+        <view class="meta">{{timezone}}</view>
+      </view>
+    </view>
+    <view class="card">
+      <view class="bar">报酬</view>
+      <view class="card-body">
+        <view wx:for="{{rewards}}" wx:key="*this">{{item}}</view>
+      </view>
+    </view>
+    <view class="note" wx:if="{{followNote}}">{{followNote}}</view>
+    <view class="dock">
+      <view class="btn" bindtap="copyCalendar">复制日历</view>
+      <view class="btn-primary" bindtap="follow">{{following ? '已关注' : '关注'}}</view>
+    </view>
+  </block>
+</view>

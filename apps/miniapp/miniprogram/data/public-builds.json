@@ -1,0 +1,71 @@
+[
+  {
+    "id": "pub-fixture-wilds-1",
+    "ownerId": "seed",
+    "gameId": "wilds",
+    "title": "夹具公开配装",
+    "weaponType": "fixture",
+    "rarity": 1,
+    "snapshot": {
+      "format": "mhbuddy.build",
+      "schemaVersion": 1,
+      "gameId": "wilds",
+      "contentProfile": "base",
+      "platformId": "pc",
+      "patchId": "fixture-p1",
+      "dataRevision": "fixture-1",
+      "rulesetVersion": "fixture-r1",
+      "title": "夹具公开配装",
+      "weapon": {
+        "entryId": "fixture-weapon-w",
+        "instanceId": "w1",
+        "customizations": []
+      },
+      "armor": [
+        {
+          "slot": "head",
+          "entryId": "fixture-head-h",
+          "instanceId": "h1"
+        },
+        {
+          "slot": "chest",
+          "entryId": "fixture-plain-chest",
+          "instanceId": "c1"
+        },
+        {
+          "slot": "arms",
+          "entryId": "fixture-plain-arms",
+          "instanceId": "a1"
+        },
+        {
+          "slot": "waist",
+          "entryId": "fixture-plain-waist",
+          "instanceId": "wst1"
+        },
+        {
+          "slot": "legs",
+          "entryId": "fixture-plain-legs",
+          "instanceId": "l1"
+        }
+      ],
+      "decorations": [
+        {
+          "entryId": "fixture-jewel-j",
+          "equipInstanceId": "w1",
+          "slotIndex": 0
+        },
+        {
+          "entryId": "fixture-jewel-k",
+          "equipInstanceId": "h1",
+          "slotIndex": 0
+        }
+      ],
+      "tags": [
+        "夹具",
+        "公开"
+      ],
+      "weaponType": "fixture",
+      "rarity": 1
+    }
+  }
+]

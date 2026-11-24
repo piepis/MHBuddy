@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -40,21 +39,8 @@ func main() {
 		log.Fatal(err)
 	}
 	defer pool.Close()
-	entries, err := os.ReadDir(filepath.Join(root, "services", "api", "migrations"))
-	if err != nil {
+	if err := api.ApplyMigrations(ctx, pool, filepath.Join(root, "services", "api", "migrations")); err != nil {
 		log.Fatal(err)
-	}
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
-			continue
-		}
-		mig, err := os.ReadFile(filepath.Join(root, "services", "api", "migrations", entry.Name()))
-		if err != nil {
-			log.Fatal(err)
-		}
-		if err := api.Migrate(ctx, pool, string(mig)); err != nil {
-			log.Fatal(err)
-		}
 	}
 	if err := api.Seed(ctx, pool, content); err != nil {
 		log.Fatal(err)
@@ -62,6 +48,8 @@ func main() {
 	dev := os.Getenv("MH_DEV_AUTH") == "1"
 	web := getenv("WEB_ROOT", filepath.Join(root, "apps", "web", "build", "web"))
 	srv := api.New(pool, dev, content, web)
+	srv.WechatAppID = os.Getenv("WECHAT_APPID")
+	srv.WechatAppSecret = os.Getenv("WECHAT_APPSECRET")
 	cfg := ai.FromEnv()
 	var provider ai.Provider
 	switch cfg.Provider {

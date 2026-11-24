@@ -1,0 +1,42 @@
+<view class="theme-{{theme}}">
+  <view class="note">{{fixtureNote}}</view>
+  <view class="banner" wx:if="{{banner}}">{{banner}}</view>
+  <view class="segment">
+    <view class="segment-item {{gameId === 'world' ? 'on' : ''}}" data-id="world" bindtap="onGame"><text class="dot dot-world"></text>{{labels.world}}</view>
+    <view class="segment-item {{gameId === 'wilds' ? 'on' : ''}}" data-id="wilds" bindtap="onGame"><text class="dot dot-wilds"></text>{{labels.wilds}}</view>
+  </view>
+  <view class="profile" wx:if="{{showProfile}}">
+    <view class="profile-item {{profile === 'base' ? 'on' : ''}}" data-id="base" bindtap="onProfile">{{labels.base}}</view>
+    <view class="profile-item {{profile === 'iceborne' ? 'on' : ''}}" data-id="iceborne" bindtap="onProfile">{{labels.iceborne}}</view>
+  </view>
+  <input class="search" placeholder="{{labels.search}}" confirm-type="search" bindconfirm="onSearch" />
+  <view class="card">
+    <view class="bar">活动任务</view>
+    <view class="card-body">
+      <view class="title">{{eventTitle}}</view>
+      <view class="meta" wx:if="{{eventMeta}}">{{eventMeta}}</view>
+      <view class="meta" wx:if="{{reward}}">报酬 {{reward}}</view>
+      <view class="actions" wx:if="{{!eventEmpty}}">
+        <view class="btn" bindtap="openEvents">{{labels.viewEvent}}</view>
+      </view>
+    </view>
+  </view>
+  <view class="card">
+    <view class="bar">资料</view>
+    <view class="card-body">
+      <view class="title">{{packText}}</view>
+      <view class="actions">
+        <view class="btn" bindtap="openOffline">{{packAction}}</view>
+      </view>
+    </view>
+  </view>
+  <view class="card" wx:if="{{showMap}}">
+    <view class="bar">地图</view>
+    <view class="card-body">
+      <view class="title">可按层和种类筛选</view>
+      <view class="actions">
+        <view class="btn" bindtap="openMap">{{labels.openMap}}</view>
+      </view>
+    </view>
+  </view>
+</view>

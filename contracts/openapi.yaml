@@ -100,6 +100,14 @@ paths:
       summary: 退出
       responses:
         "204": {description: 已撤销}
+  /v1/auth/wechat:
+    post:
+      summary: 用 wx.login 的 code 兑换会员会话
+      description: 未配置 WECHAT_APPID 与 WECHAT_APPSECRET 时返回 503 WECHAT_NOT_CONFIGURED。开发开关下 code 以 dev: 开头时绑定现有测试用户。成功响应含 token，网页 cookie 登录不返回 token。之后的会员接口接受 Authorization Bearer。
+      responses:
+        "200": {description: 已兑换}
+        "401": {description: code 无效}
+        "503": {description: 未配置微信凭据}
   /v1/auth/refresh:
     post:
       summary: 轮换会话

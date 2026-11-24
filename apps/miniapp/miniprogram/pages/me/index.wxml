@@ -1,0 +1,32 @@
+<view class="theme-{{theme}}">
+  <view class="banner" wx:if="{{banner}}">{{banner}}</view>
+  <view class="card">
+    <view class="bar">{{name}}</view>
+    <view class="card-body">
+      <view>{{hint}}</view>
+      <view class="meta">{{syncStatus}}</view>
+      <view class="actions" wx:if="{{guest}}">
+        <view class="btn-primary" bindtap="login">{{loginLabel}}</view>
+      </view>
+      <view class="actions" wx:else>
+        <view class="btn" bindtap="sync">{{syncLabel}}</view>
+        <view class="btn" bindtap="logout">退出</view>
+      </view>
+    </view>
+  </view>
+  <view class="row"><view class="row-main"><view class="row-title">{{favoriteLabel}}</view></view><text class="meta">{{favoriteCount}}</text></view>
+  <view class="row"><view class="row-main"><view class="row-title">{{memberLabel}}</view></view><text class="meta">{{quota}}</text></view>
+  <view class="card">
+    <view class="bar">语言</view>
+    <view class="card-body">
+      <view class="chip {{locale === item ? 'on' : ''}}" wx:for="{{locales}}" wx:key="*this" data-id="{{item}}" bindtap="setLocale">{{item}}</view>
+    </view>
+  </view>
+  <view class="card">
+    <view class="bar">外观</view>
+    <view class="card-body">
+      <view class="chip {{theme === 'light' ? 'on' : ''}}" data-id="light" bindtap="setTheme">浅色</view>
+      <view class="chip {{theme === 'dark' ? 'on' : ''}}" data-id="dark" bindtap="setTheme">深色</view>
+    </view>
+  </view>
+</view>

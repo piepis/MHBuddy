@@ -1,0 +1,55 @@
+{
+  "pages": [
+    "pages/home/index",
+    "pages/wiki/index",
+    "pages/builds/index",
+    "pages/me/index",
+    "pages/wiki/article",
+    "pages/map/index",
+    "pages/events/index",
+    "pages/events/detail",
+    "pages/builds/detail",
+    "pages/offline/index"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#EFE6D4",
+    "navigationBarTitleText": "MH伙伴助手",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#D9CBAF",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#B2B3B2",
+    "selectedColor": "#C4C4DC",
+    "backgroundColor": "#000000",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页",
+        "iconPath": "icons/home.png",
+        "selectedIconPath": "icons/home-on.png"
+      },
+      {
+        "pagePath": "pages/wiki/index",
+        "text": "百科",
+        "iconPath": "icons/wiki.png",
+        "selectedIconPath": "icons/wiki-on.png"
+      },
+      {
+        "pagePath": "pages/builds/index",
+        "text": "配装",
+        "iconPath": "icons/builds.png",
+        "selectedIconPath": "icons/builds-on.png"
+      },
+      {
+        "pagePath": "pages/me/index",
+        "text": "我的",
+        "iconPath": "icons/me.png",
+        "selectedIconPath": "icons/me-on.png"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

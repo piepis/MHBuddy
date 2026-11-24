@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -35,11 +36,7 @@ func testServer(t *testing.T) *httptest.Server {
 	}
 	t.Cleanup(pool.Close)
 	root := findRoot(t)
-	mig, err := os.ReadFile(filepath.Join(root, "services", "api", "migrations", "001_player_records.sql"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := Migrate(ctx, pool, string(mig)); err != nil {
+	if err := ApplyMigrations(ctx, pool, filepath.Join(root, "services", "api", "migrations")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx, `TRUNCATE TABLE reminder_jobs, reminder_subs, public_builds, articles, events, sync_ops, sync_log, player_records, sessions, entitlements, account_state, accounts RESTART IDENTITY CASCADE`); err != nil {
@@ -618,4 +615,188 @@ func stringsReplace(s string) string {
 func hexByte(b byte) string {
 	const h = "0123456789ABCDEF"
 	return string([]byte{h[b>>4], h[b&15]})
+}
+
+func doHeaders(t *testing.T, srv *httptest.Server, method, path string, body any, headers map[string]string) *http.Response {
+	t.Helper()
+	var rdr io.Reader
+	if body != nil {
+		raw, _ := json.Marshal(body)
+		rdr = bytes.NewReader(raw)
+	}
+	req, err := http.NewRequest(method, srv.URL+path, rdr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	if _, set := headers["Origin"]; !set && (req.Method == http.MethodPost || req.Method == http.MethodPut || req.Method == http.MethodDelete) && req.URL != nil {
+		req.Header.Set("Origin", req.URL.Scheme+"://"+req.URL.Host)
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { res.Body.Close() })
+	return res
+}
+
+func TestDevCookieLoginOmitsBearer(t *testing.T) {
+	srv := testServer(t)
+	defer srv.Close()
+	res := do(t, srv, "POST", "/v1/auth/session", map[string]string{"provider": "dev", "userId": "hunter-a", "displayName": "hunter-a"}, "")
+	if res.StatusCode != 200 {
+		t.Fatalf("status %d", res.StatusCode)
+	}
+	body := readJSON(t, res)
+	if _, ok := body["token"]; ok {
+		t.Fatal("web cookie login returned a bearer token")
+	}
+	if body["userId"] != "hunter-a" {
+		t.Fatalf("user %#v", body["userId"])
+	}
+}
+
+func TestWechatNotConfigured(t *testing.T) {
+	apiSrv, srv := startAPI(t)
+	defer srv.Close()
+	apiSrv.WechatAppID = "touristappid"
+	apiSrv.WechatAppSecret = "should-not-be-sent"
+	res := do(t, srv, "POST", "/v1/auth/wechat", map[string]string{"code": "js-code"}, "")
+	if res.StatusCode != 503 {
+		t.Fatalf("status %d", res.StatusCode)
+	}
+	body := readJSON(t, res)
+	if body["code"] != "WECHAT_NOT_CONFIGURED" {
+		t.Fatalf("code %#v", body["code"])
+	}
+}
+
+func TestWechatDevTokenSyncsFavorite(t *testing.T) {
+	srv := testServer(t)
+	defer srv.Close()
+	res := do(t, srv, "POST", "/v1/auth/wechat", map[string]string{"code": "dev:hunter-a"}, "")
+	if res.StatusCode != 200 {
+		t.Fatalf("login %d", res.StatusCode)
+	}
+	body := readJSON(t, res)
+	token, _ := body["token"].(string)
+	if token == "" || body["mode"] != "dev" || body["userId"] != "hunter-a" {
+		t.Fatalf("body %#v", body)
+	}
+	res = doHeaders(t, srv, "POST", "/v1/sync/push", map[string]any{"ops": []map[string]any{{
+		"opId": "fav-1", "recordType": "favorite", "recordId": "fav-world-monster-fixture-jagras",
+		"gameId": "world", "kind": "monster", "entryId": "fixture-jagras", "action": "upsert", "baseRevision": 0,
+		"payload": map[string]any{"title": "夹具大凶豺龙"},
+	}}}, map[string]string{"Authorization": "Bearer " + token})
+	if res.StatusCode != 200 {
+		raw, _ := io.ReadAll(res.Body)
+		t.Fatalf("push %d %s", res.StatusCode, raw)
+	}
+	pushed := readJSON(t, res)
+	results, _ := pushed["results"].([]any)
+	if len(results) != 1 || results[0].(map[string]any)["status"] != "applied" {
+		t.Fatalf("push %#v", pushed)
+	}
+	res = doHeaders(t, srv, "GET", "/v1/me/entitlement", nil, map[string]string{"Authorization": "Bearer " + token})
+	if res.StatusCode != 200 {
+		t.Fatalf("entitlement %d", res.StatusCode)
+	}
+	res = doHeaders(t, srv, "GET", "/v1/sync/snapshot", nil, map[string]string{"Authorization": "Bearer " + token})
+	snap := readJSON(t, res)
+	raw, _ := json.Marshal(snap)
+	if !strings.Contains(string(raw), "fixture-jagras") {
+		t.Fatalf("snapshot %s", raw)
+	}
+	res = doHeaders(t, srv, "POST", "/v1/auth/refresh", nil, map[string]string{"Authorization": "Bearer " + token})
+	refreshed := readJSON(t, res)
+	if refreshed["token"] == "" || refreshed["token"] == token {
+		t.Fatalf("refresh %#v", refreshed)
+	}
+}
+
+func TestWechatCodeCreatesMember(t *testing.T) {
+	wx := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("secret") != "sec" || r.URL.Query().Get("js_code") != "code-1" {
+			http.Error(w, "bad", 400)
+			return
+		}
+		fmt.Fprint(w, `{"openid":"openid-1","session_key":"super-secret","unionid":"union-1"}`)
+	}))
+	defer wx.Close()
+	apiSrv, srv := startAPI(t)
+	defer srv.Close()
+	apiSrv.WechatAppID = "wx-test-app"
+	apiSrv.WechatAppSecret = "sec"
+	apiSrv.WechatEndpoint = wx.URL
+	res := do(t, srv, "POST", "/v1/auth/wechat", map[string]string{"code": "code-1"}, "")
+	if res.StatusCode != 200 {
+		raw, _ := io.ReadAll(res.Body)
+		t.Fatalf("login %d %s", res.StatusCode, raw)
+	}
+	body := readJSON(t, res)
+	raw, _ := json.Marshal(body)
+	if strings.Contains(string(raw), "super-secret") || strings.Contains(string(raw), "session_key") {
+		t.Fatalf("session key leaked: %s", raw)
+	}
+	if body["mode"] != "wechat" || body["displayName"] != "微信用户" || body["token"] == "" {
+		t.Fatalf("body %#v", body)
+	}
+	userID := body["userId"]
+	res = do(t, srv, "POST", "/v1/auth/wechat", map[string]string{"code": "code-1"}, "")
+	again := readJSON(t, res)
+	if again["userId"] != userID {
+		t.Fatalf("user changed %#v", again["userId"])
+	}
+}
+
+func TestWechatOriginAndBrowserCSRF(t *testing.T) {
+	srv := testServer(t)
+	defer srv.Close()
+	ok := doHeaders(t, srv, "POST", "/v1/auth/wechat", map[string]string{"code": "dev:hunter-a"}, map[string]string{"Origin": "https://servicewechat.com"})
+	if ok.StatusCode != 200 {
+		t.Fatalf("servicewechat %d", ok.StatusCode)
+	}
+	referer := doHeaders(t, srv, "POST", "/v1/auth/wechat", map[string]string{"code": "dev:hunter-a"}, map[string]string{"Origin": "", "Referer": "https://servicewechat.com/touristappid/0/page-frame.html"})
+	if referer.StatusCode != 200 {
+		t.Fatalf("referer %d", referer.StatusCode)
+	}
+	bad := doHeaders(t, srv, "POST", "/v1/auth/session", map[string]string{"provider": "dev", "userId": "hunter-a", "displayName": "hunter-a"}, map[string]string{"Origin": "https://evil.example"})
+	if bad.StatusCode != 403 {
+		t.Fatalf("csrf %d", bad.StatusCode)
+	}
+}
+
+func startAPI(t *testing.T) (*Server, *httptest.Server) {
+	t.Helper()
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	if dsn == "" {
+		dsn = "postgres://ubuntu@127.0.0.1:5432/mhbuddy_test?sslmode=disable"
+	}
+	ctx := context.Background()
+	if err := EnsureDatabase(ctx, "postgres://ubuntu@127.0.0.1:5432/postgres?sslmode=disable", "mhbuddy_test"); err != nil {
+		t.Fatal(err)
+	}
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	root := findRoot(t)
+	if err := ApplyMigrations(ctx, pool, filepath.Join(root, "services", "api", "migrations")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `TRUNCATE TABLE reminder_jobs, reminder_subs, public_builds, articles, events, sync_ops, sync_log, player_records, sessions, entitlements, account_state, accounts RESTART IDENTITY CASCADE`); err != nil {
+		t.Fatal(err)
+	}
+	content := filepath.Join(root, "content", "fixtures")
+	if err := Seed(ctx, pool, content); err != nil {
+		t.Fatal(err)
+	}
+	apiSrv := New(pool, true, content, "")
+	return apiSrv, httptest.NewServer(apiSrv)
 }

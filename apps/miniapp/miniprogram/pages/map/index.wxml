@@ -1,0 +1,24 @@
+<view class="theme-{{theme}}">
+  <view wx:if="{{missing}}" class="note">{{text}}</view>
+  <block wx:else>
+    <scroll-view class="filters" scroll-x="true">
+      <view wx:for="{{layers}}" wx:key="id" class="chip {{item.on ? 'on' : ''}}" data-id="{{item.id}}" bindtap="onLayer">{{item.name}}</view>
+      <view class="chip {{kindGather ? 'on' : ''}}" data-id="gather" bindtap="onKind">矿脉</view>
+      <view class="chip {{kindRare ? 'on' : ''}}" data-id="rare-gather" bindtap="onKind">稀有</view>
+    </scroll-view>
+    <view class="note" wx:if="{{layerMissingText}}">{{layerMissingText}}</view>
+    <view class="map">
+      <view wx:for="{{markers}}" wx:key="poiId" class="pin {{item.on ? 'on' : ''}}" style="left: {{item.left}}; top: {{item.top}};" data-id="{{item.poiId}}" bindtap="onPin"></view>
+    </view>
+    <view class="card" wx:if="{{selected}}">
+      <view class="card-body">
+        <view class="title">{{selected.kind}} · {{selected.area}}</view>
+        <view class="meta">{{selected.conditions}}</view>
+        <view class="actions" wx:if="{{selected.resourceId}}">
+          <view class="btn" bindtap="openEntry">查看素材</view>
+        </view>
+      </view>
+    </view>
+    <view class="note" wx:else>点一个标记查看素材</view>
+  </block>
+</view>
