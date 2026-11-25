@@ -68,6 +68,9 @@ func New(pool *pgxpool.Pool, dev bool, contentDir, webRoot string) *Server {
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "same-origin")
+	if s.serveAnalytics(w, r) {
+		return
+	}
 	if strings.HasPrefix(r.URL.Path, "/v1/") || r.URL.Path == "/healthz" {
 		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete {
 			if !csrfOK(r) {

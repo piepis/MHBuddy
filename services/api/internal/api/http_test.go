@@ -35,14 +35,23 @@ func testServer(t *testing.T) *httptest.Server {
 	}
 	t.Cleanup(pool.Close)
 	root := findRoot(t)
-	mig, err := os.ReadFile(filepath.Join(root, "services", "api", "migrations", "001_player_records.sql"))
+	entries, err := os.ReadDir(filepath.Join(root, "services", "api", "migrations"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := Migrate(ctx, pool, string(mig)); err != nil {
-		t.Fatal(err)
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
+			continue
+		}
+		mig, err := os.ReadFile(filepath.Join(root, "services", "api", "migrations", entry.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := Migrate(ctx, pool, string(mig)); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if _, err := pool.Exec(ctx, `TRUNCATE TABLE reminder_jobs, reminder_subs, public_builds, articles, events, sync_ops, sync_log, player_records, sessions, entitlements, account_state, accounts RESTART IDENTITY CASCADE`); err != nil {
+	if _, err := pool.Exec(ctx, `TRUNCATE TABLE ai_usage_log, analytics_events, visitors, account_preferences, reminder_jobs, reminder_subs, public_builds, articles, events, sync_ops, sync_log, player_records, sessions, entitlements, account_state, accounts RESTART IDENTITY CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	content := filepath.Join(root, "content", "fixtures")

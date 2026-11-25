@@ -245,8 +245,27 @@ class PlayerStore {
     }
   }
 
-  void setInventory(String gameId, String entryId, int quantity) {
-    _box['inventory:$gameId:$entryId'] = StoreRecord(type: 'inventory', id: entryId, gameId: gameId, payload: {'quantity': quantity}, sync: 'local');
+  void setInventory(String gameId, String entryId, int quantity, {String kind = 'decoration', bool queue = true}) {
+    final key = 'inventory:$gameId:$entryId';
+    final base = _box[key]?.revision ?? 0;
+    final payload = {'quantity': quantity, 'kind': kind};
+    transaction(() {
+      outbox.removeWhere((op) => op['recordType'] == 'inventory' && op['gameId'] == gameId && op['recordId'] == entryId && op['action'] == 'upsert');
+      _box[key] = StoreRecord(type: 'inventory', id: entryId, gameId: gameId, payload: payload, revision: base, sync: queue ? 'pending' : 'local');
+      if (queue) {
+        outbox.add({
+          'opId': 'local-inv-$gameId-$entryId-${outbox.length}',
+          'recordType': 'inventory',
+          'recordId': entryId,
+          'gameId': gameId,
+          'kind': kind,
+          'entryId': entryId,
+          'baseRevision': base,
+          'action': 'upsert',
+          'payload': payload,
+        });
+      }
+    });
   }
 
   int inventoryOf(String gameId, String entryId) => (_box['inventory:$gameId:$entryId']?.payload['quantity'] as int?) ?? 0;

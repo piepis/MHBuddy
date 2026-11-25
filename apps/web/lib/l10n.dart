@@ -77,6 +77,7 @@ class L10n {
     'draft': ['草稿', '草稿', 'Draft', '下書き'],
     'rarity': ['稀有度', '稀有度', 'Rarity', 'レア度'],
     'source': ['来源', '來源', 'Source', '出典'],
+    'privacy': ['隐私说明', '隱私說明', 'Privacy', 'プライバシー'],
   };
 
   String t(String key) {

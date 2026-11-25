@@ -145,3 +145,30 @@ paths:
       responses:
         "200": {description: 快照}
         "401": {description: 未登录}
+  /v1/me/preferences:
+    get:
+      summary: 读取账户偏好
+      responses:
+        "200": {description: 语言、主题、内容档}
+        "401": {description: 未登录}
+    put:
+      summary: 写入账户偏好
+      responses:
+        "200": {description: 已保存}
+        "401": {description: 未登录}
+  /v1/analytics/collect:
+    post:
+      summary: 匿名埋点。不接收 IP。
+      responses:
+        "200": {description: 已记录}
+  /v1/ai/usage:
+    post:
+      summary: 结构化 AI 使用记录。忽略原句。
+      responses:
+        "200": {description: 已记录}
+  /v1/admin/metrics:
+    get:
+      summary: 管理员聚合指标
+      responses:
+        "200": {description: 聚合}
+        "404": {description: 不是管理员}

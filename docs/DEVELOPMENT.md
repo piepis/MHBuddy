@@ -88,8 +88,10 @@ flowchart LR
 | `/g/:gameId/builds` | 配装 |
 | `/g/:gameId/events/:id` | 活动 |
 | `/builds/:publicId` | 已发布配装。撤回或不存在不展示装备 |
-| `/me` | 收藏、配装计数、语言、外观、登录 |
+| `/me` | 收藏、配装计数、语言、外观、登录、隐私说明入口 |
 | `/offline` | 按作品下载夹具包 |
+| `/privacy` | 隐私说明。由 Go 直接返回，不走 Flutter 路由 |
+| `/admin` | 运营看板。非管理员 404 |
 
 <a id="data-model"></a>
 
@@ -103,7 +105,7 @@ flowchart LR
 - 收藏、语言、主题、离线标记写在 IndexedDB 的 `meta`。
 - 未同步的配装对象在内存里的 `PlayerStore`。刷新页面会丢掉尚未同步的内存配装。
 
-PostgreSQL 表（启动时执行 `001_player_records.sql`）：
+PostgreSQL 表（启动时按文件名顺序执行 `services/api/migrations/*.sql`，含 `001_player_records.sql`、`002_ai_usage.sql`、`003_analytics.sql`）：
 
 | 表 | 内容 |
 | --- | --- |
@@ -116,8 +118,51 @@ PostgreSQL 表（启动时执行 `001_player_records.sql`）：
 | `public_builds` | 已发布快照。`retracted_at` 非空表示撤回 |
 | `events` / `articles` | 夹具日程和短文 |
 | `reminder_subs` / `reminder_jobs` | 提醒订阅和待发任务 |
+| `ai_daily` / `ai_monthly` | 听懂成功次数。只有主体、日期或月份、次数。没有原句 |
+| `account_preferences` | 登录账户的语言、浅色或深色、本体或冰原 |
+| `visitors` | 随机访客 id、首次和最近出现、后来关联的账户。没有 IP |
+| `analytics_events` | 匿名埋点。见下文「埋点字段」 |
+| `ai_usage_log` | AI 使用的结构化条件和条目 id。没有原句列 |
 
 收藏的唯一约束是 `(owner_id, game_id, kind, entry_id)`，避免两作同号条目撞在一起。私稿行不在 `public_builds` 里。
+
+个人配装、装饰品和护石仍走 `player_records`。`record_type` 为 `build` 或 `inventory`。库存 `payload` 是 `{quantity, kind}`，`kind` 为 `decoration` 或 `talisman`。登录后客户端把 outbox 推到 `POST /v1/sync/push`，再用 snapshot 拉回。偏好走 `PUT /v1/me/preferences`，不占同步字节额度。
+
+埋点字段（`POST /v1/analytics/collect`）：
+
+| 字段 | 含义 |
+| --- | --- |
+| `type` | `page_view`、`search`、`catalog_view`、`build_generate`、`build_share`、`session` |
+| `path` | 站内路径，最长约 160 字符 |
+| `gameId` | `world` 或 `wilds` |
+| `contentProfile` | `base` 或 `iceborne`。冰原不是第三个作品 |
+| `query` | 搜索词。服务端去掉首尾空白、压成小写、最长 80 字 |
+| `kind` | `weapon`、`armor`、`monster`、`item`、`skill`、`material`、`decoration`、`talisman` |
+| `entryId` / `weaponId` / `monsterId` / `publicId` | 条目 id。只接受字母、数字、`_`、`.`、`:`、`-` |
+| `styles` | 最多 8 个短词，每个最长 16 个字 |
+| `at` | 仅 `MH_DEV_AUTH=1` 时接受 RFC3339，用来验收留存。生产进程忽略 |
+
+访客 id 在 Cookie `mh_anon`，32 位随机十六进制，HttpOnly。不从 IP 推导，数据库也没有 IP 列。默认保留 `MH_ANALYTICS_RETENTION_DAYS` 天（默认 180），进程第一次接到埋点或 AI 记录时删掉更早的行。账户、配装、库存和偏好不按这个期限删除。
+
+分组阈值是 `MH_ANALYTICS_K`，默认 5。少于这个数的作品、武器、怪物、风格、搜索词、公开配装和留存 cohort 不出现在看板里。
+
+### 备份与恢复
+
+连接串放在环境变量 `DATABASE_URL`，不要写进仓库。下面两条命令不会打印连接串。
+
+```bash
+make db-backup FILE=mhbuddy.dump
+make db-restore FILE=mhbuddy.dump
+```
+
+等价于：
+
+```bash
+bash tools/db/backup.sh mhbuddy.dump
+bash tools/db/restore.sh mhbuddy.dump
+```
+
+`backup.sh` 使用 `pg_dump --format=custom`。`restore.sh` 使用 `pg_restore --clean --if-exists`。恢复会按 dump 里的对象重建，包括这三份迁移已经建过的表。新环境也可以只靠进程启动时的迁移，不必先恢复。
 
 开发环境额度：`hunter-b` 是小档 800 字节，其他开发用户是 20000 字节。这是测试档，不是售价。
 
@@ -154,8 +199,35 @@ PostgreSQL 表（启动时执行 `001_player_records.sql`）：
 | `POST /v1/dev/entitlement` | 同上且已登录 | 改自己的测试额度 |
 | `POST /v1/dev/compact` | 同上 | 把游标下界推到当前，用于过期测试 |
 | `GET /v1/dev/reminder-jobs` | 同上 | 查看待发提醒 |
+| `GET /v1/me/preferences` | 登录 | 语言、主题、内容档。未登录 401 |
+| `PUT /v1/me/preferences` | 登录 | 写入上述三项 |
+| `POST /v1/analytics/collect` | 匿名 | 埋点。不存 IP。写请求同样检查 `Origin` |
+| `POST /v1/ai/usage` | 匿名或登录 | 只存结构化条件和条目 id。请求里的原句被忽略 |
+| `GET /admin` | 管理员 | 运营看板页面。其他人 404 |
+| `GET /v1/admin/metrics` | 管理员 | 同一份聚合的 JSON。其他人 404 |
+| `GET /privacy` | 匿名 | 隐私说明 |
 
 个人数据响应带 `Cache-Control: private, no-store`。Service Worker 不缓存 `/v1/`。
+
+### 运营看板与管理员
+
+看板路径是 `/admin`。接口是 `GET /v1/admin/metrics?from=YYYY-MM-DD&to=YYYY-MM-DD`。日期含首尾，默认最近 28 天，最长 366 天。页面和接口都在服务端核对会话用户是否在管理员名单里。访客和普通会员得到 404，响应里不写「管理员」。
+
+指定管理员，两种方式可以同时用，名单取并集：
+
+```text
+MH_ADMINS=hunter-a,ops
+```
+
+```text
+go run ./cmd/mhbuddy --admin hunter-a --admin ops
+```
+
+也接受 `--admin=hunter-a`。这是用户 id，不是密码。不要把生产名单提交进仓库。`MH_DEV_AUTH` 仍然只控制测试登录，不能代替管理员名单。
+
+看板指标：新账户和活跃访客、次日和第 7 天留存、世界 / 冰原 / 荒野、武器、目标怪物、玩法风格、访客关联到账户的数量、AI 结构化记录和听懂次数账本、当前同步空间字节、热门搜索、热门公开配装。同步空间不按日期裁剪，也不是模型售价。本站没有公网，看板读的是当前数据库，不是已上线报表。
+
+隐私说明在 `/privacy`。「我的」和窄屏菜单有入口。它说明收集项、用途和保存期限，并写明小样本分组会隐藏。
 
 ### 一句话配装
 
@@ -208,6 +280,8 @@ postgres://ubuntu@127.0.0.1:5432/mhbuddy?sslmode=disable
 | `make build` | `flutter build web --release --pwa-strategy=none`，再把 Go 服务编到 `.run/mhbuddy` |
 | `make audit-data` | 没有正式资料清单时打印原因并退出码 1。这是预期，不是夹具验签失败 |
 | `make check TASK=T04` | 跑指定任务的检查。`T11` 会说明发布要所有者操作并退出码 2 |
+| `make db-backup FILE=mhbuddy.dump` | `pg_dump` 自定义格式备份。默认文件 `mhbuddy.dump` |
+| `make db-restore FILE=mhbuddy.dump` | `pg_restore --clean --if-exists`。必须给出 `FILE` |
 
 `make dev` 设置 `MH_DEV_AUTH=1`。模型相关变量见上文「一句话配装」。没有密钥时不要指望 `make dev` 接通 xAI。最近一次在本仓库执行：`make dev` 退出码 0，`/healthz` 为 200；`make build` 退出码 0。
 
@@ -218,7 +292,7 @@ postgres://ubuntu@127.0.0.1:5432/mhbuddy?sslmode=disable
 | 范围 | 位置 | 覆盖 |
 | --- | --- | --- |
 | 契约 | `services/api/internal/contract` | 两份荒野配装样例符合 schema，OpenAPI 含主要路径 |
-| API | `services/api/internal/api` | 匿名同步 401、幂等、修订冲突、额度、收藏按作品分开、活动名和报酬检索、撤回后 410、清单 304 |
+| API | `services/api/internal/api` | 匿名同步 401、幂等、修订冲突、额度、收藏按作品分开、活动名和报酬检索、撤回后 410、清单 304、管理员 404、埋点阈值、AI 原句不落库、偏好和库存往返 |
 | 百科与安装 | `packages/catalog` | 别名、大小写、全角、冰原筛选、同名异作、地图分层、坏签名和坏哈希 |
 | 求解与导入 | `packages/builds` | 两孔两珠才有解、预留武器孔、样例往返、错孔 |
 | 个人库 | `packages/player_store` | 事务回滚、分区、冲突副本 |
@@ -283,6 +357,7 @@ cd services/api && go run ./cmd/mhbuddy pack
 - 荒野公开简介没有地图，因此没有荒野地图页。
 - 机械武器、猫饭、极限突破只记在功能矩阵，没有做成模拟器。
 - 会员没有真实支付。额度只在开发开关下可改。
-- 已登录时，配装、收藏和库存经同步写入 PostgreSQL，刷新后按会话拉回。未登录的副本留在 IndexedDB。主题也留在 IndexedDB。
+- 已登录时，配装、收藏和库存经同步写入 PostgreSQL，刷新后按会话拉回。语言、主题和本体 / 冰原同时写入 `account_preferences`。未登录的副本留在 IndexedDB。
+- 运营看板 `/admin` 只对 `MH_ADMINS` 或 `--admin` 点名的账户开放。仓库里没有生产管理员名单，也没有公网地址。
 - CI 只跑 Go 测试。Flutter 和浏览器要在本地 `make verify` 与 `tests/acceptance` 里跑。
 - `make dev` 依赖本机 Postgres 已经在听 5432。仓库不附带安装脚本。
