@@ -1,0 +1,12 @@
+.git
+.github
+**/.dart_tool
+**/build
+.run
+node_modules
+images
+docs/execution
+tests
+third_party
+*.log
+*.dump
