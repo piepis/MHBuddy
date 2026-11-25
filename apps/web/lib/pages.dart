@@ -927,18 +927,27 @@ List<Map<String, dynamic>> _rewardList(Object? raw) {
   ];
 }
 
-class PublicBuildPage extends StatelessWidget {
+class PublicBuildPage extends StatefulWidget {
   const PublicBuildPage({required this.id, super.key});
   final String id;
+  @override
+  State<PublicBuildPage> createState() => _PublicBuildPageState();
+}
+
+class _PublicBuildPageState extends State<PublicBuildPage> {
+  Future<Map<String, dynamic>>? _load;
+  String notice = '';
+
   @override
   Widget build(BuildContext context) {
     final model = MhScope.of(context);
     final l10n = L10n(model.locale);
     final p = paletteOf(context);
+    _load ??= model.publicBuild(widget.id);
     return MhFrame(
       title: l10n.t('hall'),
       child: FutureBuilder(
-        future: model.publicBuild(id),
+        future: _load,
         builder: (context, snap) {
           final row = snap.data;
           if (row == null) return const Center(child: CircularProgressIndicator());
@@ -946,30 +955,98 @@ class PublicBuildPage extends StatelessWidget {
             return Center(child: Text(l10n.t('retractedTitle'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: p.ink)));
           }
           if (row['httpStatus'] == 404 || row['code'] == 'NOT_FOUND') return Center(child: Text(l10n.t('missing')));
+          final snapshot = row['snapshot'] is Map ? Map<String, dynamic>.from(row['snapshot'] as Map) : const <String, dynamic>{};
+          final lines = structuredLoadoutLines(snapshot);
           return ListView(padding: EdgeInsets.all(p.pagePad), children: [
-            Text(row['title']?.toString() ?? id, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: p.ink)),
-            Text(catalogFixtureLine(row), style: TextStyle(color: p.skillOn)),
-            const SizedBox(height: 8),
-            Text(const JsonEncoder.withIndent('  ').convert(row['snapshot']), style: TextStyle(color: p.ink, height: 1.45)),
+            spoken(row['title']?.toString() ?? widget.id, TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: p.ink)),
+            spoken(catalogFixtureLine(row), TextStyle(color: p.skillOn)),
             const SizedBox(height: 12),
-            MhButton(label: l10n.t('copyMine'), primary: true, onPressed: () {
-              final snap = row['snapshot'];
-              final payload = snap is Map
-                  ? persistedPublic(Map<String, dynamic>.from(snap), sourceId: id)
-                  : <String, dynamic>{'title': row['title'], 'source': id, 'fixture': true};
-              model.saveLoadout(row['gameId']?.toString() ?? 'world', 'copy-$id', payload);
-            }),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              MhButton(label: l10n.t('copyMine'), primary: true, onPressed: () async {
+                final payload = snapshot.isEmpty
+                    ? <String, dynamic>{'title': row['title'], 'source': widget.id, 'fixture': true}
+                    : persistedPublic(snapshot, sourceId: widget.id);
+                await model.saveLoadout(row['gameId']?.toString() ?? 'world', 'copy-${widget.id}', payload);
+                if (mounted) setState(() => notice = '已复制到我的配装');
+              }),
+              MhButton(label: l10n.t('copyLink'), onPressed: () {
+                model.trackShare(widget.id);
+                Clipboard.setData(ClipboardData(text: Uri.base.toString()));
+              }),
+            ]),
+            if (notice.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              spoken(notice, TextStyle(color: p.ink, fontWeight: FontWeight.w700)),
+            ],
+            const SizedBox(height: 12),
+            for (final line in lines) spoken(line, TextStyle(color: p.ink, height: 1.55, fontSize: 15)),
             const SizedBox(height: 8),
-            MhButton(label: l10n.t('copyLink'), onPressed: () {
-              model.trackShare(id);
-              Clipboard.setData(ClipboardData(text: Uri.base.toString()));
-            }),
+            _RawSnapshot(text: const JsonEncoder.withIndent('  ').convert(row['snapshot']), palette: p),
             const SizedBox(height: 8),
             SelectableText(Uri.base.toString(), style: TextStyle(color: p.meta, fontSize: 13)),
           ]);
         },
       ),
     );
+  }
+}
+
+const _slotNames = {'head': '头', 'chest': '胸', 'arms': '腕', 'waist': '腰', 'legs': '腿'};
+
+List<String> structuredLoadoutLines(Map<String, dynamic> snapshot) {
+  final lines = <String>[];
+  final tags = snapshot['tags'];
+  lines.add('标签：${tags is List && tags.isNotEmpty ? tags.map((e) => '$e').join('、') : '无'}');
+  final weapon = snapshot['weapon'];
+  final weaponId = weapon is Map ? '${weapon['entryId'] ?? ''}' : '';
+  lines.add('武器：${weaponId.isEmpty ? '无' : weaponId}');
+  final armor = snapshot['armor'];
+  if (armor is List && armor.isNotEmpty) {
+    for (final raw in armor) {
+      if (raw is! Map) continue;
+      final slot = '${raw['slot'] ?? ''}';
+      final entryId = '${raw['entryId'] ?? '无'}';
+      lines.add('${_slotNames[slot] ?? slot}：$entryId');
+    }
+  } else {
+    for (final slot in _slotNames.keys) {
+      lines.add('${_slotNames[slot]}：无');
+    }
+  }
+  final jewels = <String>[];
+  final decorations = snapshot['decorations'];
+  if (decorations is List) {
+    for (final raw in decorations) {
+      if (raw is Map && raw['entryId'] != null) jewels.add('${raw['entryId']}');
+    }
+  }
+  final charm = snapshot['charm'] ?? snapshot['talisman'];
+  if (charm is Map && charm['entryId'] != null) jewels.insert(0, '${charm['entryId']}');
+  lines.add('护石/珠子：${jewels.isEmpty ? '无' : jewels.join('、')}');
+  final revision = snapshot['dataRevision'];
+  lines.add('数据版本：${revision ?? '无'}');
+  return lines;
+}
+
+class _RawSnapshot extends StatefulWidget {
+  const _RawSnapshot({required this.text, required this.palette});
+  final String text;
+  final MhPalette palette;
+  @override
+  State<_RawSnapshot> createState() => _RawSnapshotState();
+}
+
+class _RawSnapshotState extends State<_RawSnapshot> {
+  bool open = false;
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      MhButton(label: open ? '收起原始快照' : '原始快照', onPressed: () => setState(() => open = !open)),
+      if (open) ...[
+        const SizedBox(height: 8),
+        Text(widget.text, style: TextStyle(color: widget.palette.ink, height: 1.45, fontSize: 13)),
+      ],
+    ]);
   }
 }
 
