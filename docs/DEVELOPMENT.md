@@ -328,6 +328,8 @@ postgres://ubuntu@127.0.0.1:5432/mhbuddy?sslmode=disable
 
 说明见 [Cursor Apps 文档](https://cursor.com/docs/cloud-agent/apps)。若团队关闭了公开分享，要管理员先打开该项。代理不能代替点击，也不应填写一个还不存在的 URL。
 
+没有公网地址时，在仓库根目录执行 `docker compose up --build`，用本机浏览器打开 http://localhost:8080/ 。Windows 和 macOS 只需 Docker Desktop。步骤、开发管理员 `hunter-a` 和 `/admin` 的限制写在仓库根目录的 README。这个 Compose 栈打开了 `MH_DEV_AUTH`，只适合本机。
+
 <a id="import"></a>
 
 ## 数据导入
